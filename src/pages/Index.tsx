@@ -73,6 +73,23 @@ const Index = () => {
           wedding={selectedWedding}
           onBack={() => setSelectedWeddingId(null)}
           onReview={() => setShowReview(true)}
+          onDeleteItem={(folderName, itemId) => {
+            setWeddings((prev) =>
+              prev.map((w) =>
+                w.id === selectedWedding.id
+                  ? {
+                      ...w,
+                      mediaCount: w.mediaCount - 1,
+                      folders: w.folders.map((f) =>
+                        f.name === folderName
+                          ? { ...f, items: f.items.filter((item) => item.id !== itemId) }
+                          : f
+                      ),
+                    }
+                  : w
+              )
+            );
+          }}
         />
       </>
     );
