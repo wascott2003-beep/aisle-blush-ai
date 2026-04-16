@@ -29,7 +29,7 @@ const Index = () => {
   if (showUpload) {
     return (
       <>
-        <AppNav currentPage={page} onNavigate={setPage} onLogout={() => setLoggedIn(false)} />
+        <AppNav currentPage={page} onNavigate={(p) => { setPage(p); setShowUpload(false); }} onLogout={() => setLoggedIn(false)} />
         <UploadFlow
           onBack={() => setShowUpload(false)}
           onComplete={(wedding) => {
