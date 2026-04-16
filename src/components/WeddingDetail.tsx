@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Sparkles, Heart, Camera, PartyPopper, Gem, FolderOpen, AlertTriangle, Image as ImageIcon, Film } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Wedding, MediaFolder } from '@/lib/types';
+import { Wedding, MediaFolder, MediaItem } from '@/lib/types';
+import MediaViewer from '@/components/MediaViewer';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Sparkles, Heart, Camera, PartyPopper, Gem, FolderOpen,
@@ -12,37 +13,61 @@ interface WeddingDetailProps {
   wedding: Wedding;
   onBack: () => void;
   onReview: () => void;
+  onDeleteItem?: (folderName: string, itemId: string) => void;
 }
 
-const WeddingDetail = ({ wedding, onBack, onReview }: WeddingDetailProps) => {
+const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem }: WeddingDetailProps) => {
   const [openFolder, setOpenFolder] = useState<MediaFolder | null>(null);
+  const [viewingItem, setViewingItem] = useState<MediaItem | null>(null);
 
-  if (openFolder) {
+  // Keep openFolder in sync with wedding data after deletions
+  const currentFolder = openFolder
+    ? wedding.folders.find((f) => f.name === openFolder.name) || openFolder
+    : null;
+
+  const handleDelete = (itemId: string) => {
+    if (currentFolder && onDeleteItem) {
+      onDeleteItem(currentFolder.name, itemId);
+    }
+  };
+
+  if (currentFolder && openFolder) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <AnimatePresence>
+          {viewingItem && (
+            <MediaViewer
+              item={viewingItem}
+              onClose={() => setViewingItem(null)}
+              onDelete={handleDelete}
+            />
+          )}
+        </AnimatePresence>
+
         <button onClick={() => setOpenFolder(null)} className="flex items-center gap-2 text-muted-foreground hover:text-foreground font-body text-sm mb-6 transition-colors">
           <ArrowLeft className="w-4 h-4" />
           Back to {wedding.name}
         </button>
 
         <div className="mb-6">
-          <h1 className="text-2xl font-heading font-semibold text-foreground">{openFolder.name}</h1>
-          <p className="text-muted-foreground font-body text-sm mt-1">{openFolder.items.length} items</p>
+          <h1 className="text-2xl font-heading font-semibold text-foreground">{currentFolder.name}</h1>
+          <p className="text-muted-foreground font-body text-sm mt-1">{currentFolder.items.length} items</p>
         </div>
 
-        {openFolder.items.length === 0 ? (
+        {currentFolder.items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground font-body">
             <FolderOpen className="w-12 h-12 mb-3 opacity-40" />
             <p>No items in this folder yet</p>
           </div>
         ) : (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
-            {openFolder.items.map((item, i) => (
+            {currentFolder.items.map((item, i) => (
               <motion.div
                 key={item.id}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: Math.min(i * 0.02, 0.5) }}
+                onClick={() => setViewingItem(item)}
                 className="aspect-square rounded-lg bg-accent border border-border flex items-center justify-center relative overflow-hidden hover:border-rose-gold-light/60 transition-colors cursor-pointer"
               >
                 {item.type === 'video' ? (
