@@ -69,22 +69,33 @@ const MediaViewer = ({ item, onClose, onDelete }: MediaViewerProps) => {
       <div className="w-full h-full flex items-center justify-center p-8">
         {item.type === 'photo' ? (
           <div className="max-w-full max-h-full flex items-center justify-center">
-            {/* Placeholder since we don't have real images */}
-            <div className="w-80 h-80 sm:w-[28rem] sm:h-[28rem] rounded-2xl bg-accent/10 border border-white/10 flex flex-col items-center justify-center gap-3">
-              <ImageIcon className="w-16 h-16 text-white/20" />
-              <p className="text-white/40 font-body text-sm">{item.folder}</p>
-              <p className="text-white/20 font-body text-xs">{item.id}</p>
-            </div>
+            {hasRealMedia ? (
+              <img src={item.url} alt={item.folder} className="max-w-full max-h-[80vh] rounded-2xl object-contain" />
+            ) : (
+              <div className="w-80 h-80 sm:w-[28rem] sm:h-[28rem] rounded-2xl bg-accent/10 border border-white/10 flex flex-col items-center justify-center gap-3">
+                <ImageIcon className="w-16 h-16 text-white/20" />
+                <p className="text-white/40 font-body text-sm">{item.folder}</p>
+              </div>
+            )}
           </div>
         ) : (
           <div className="relative flex flex-col items-center gap-4">
-            <div className="w-80 h-56 sm:w-[32rem] sm:h-[20rem] rounded-2xl bg-accent/10 border border-white/10 flex flex-col items-center justify-center gap-3 relative">
-              <Film className="w-16 h-16 text-white/20" />
-              <p className="text-white/40 font-body text-sm">{item.folder}</p>
-              {item.duration && (
-                <p className="text-white/30 font-body text-xs">{item.duration.toFixed(1)}s</p>
-              )}
-            </div>
+            {hasRealMedia ? (
+              <video
+                ref={videoRef}
+                src={item.url}
+                className="max-w-full max-h-[70vh] rounded-2xl"
+                onEnded={() => setPlaying(false)}
+              />
+            ) : (
+              <div className="w-80 h-56 sm:w-[32rem] sm:h-[20rem] rounded-2xl bg-accent/10 border border-white/10 flex flex-col items-center justify-center gap-3">
+                <Film className="w-16 h-16 text-white/20" />
+                <p className="text-white/40 font-body text-sm">{item.folder}</p>
+                {item.duration && (
+                  <p className="text-white/30 font-body text-xs">{item.duration.toFixed(1)}s</p>
+                )}
+              </div>
+            )}
             <button
               onClick={togglePlay}
               className="w-14 h-14 rounded-full bg-rose-gold hover:bg-rose-gold-dark flex items-center justify-center transition-colors"

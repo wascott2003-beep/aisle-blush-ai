@@ -61,27 +61,40 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem }: WeddingDetai
           </div>
         ) : (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
-            {currentFolder.items.map((item, i) => (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: Math.min(i * 0.02, 0.5) }}
-                onClick={() => setViewingItem(item)}
-                className="aspect-square rounded-lg bg-accent border border-border flex items-center justify-center relative overflow-hidden hover:border-rose-gold-light/60 transition-colors cursor-pointer"
-              >
-                {item.type === 'video' ? (
-                  <Film className="w-5 h-5 text-rose-gold/50" />
-                ) : (
-                  <ImageIcon className="w-5 h-5 text-muted-foreground/40" />
-                )}
-                {item.type === 'video' && (
-                  <span className="absolute bottom-1 right-1 text-[10px] bg-foreground/70 text-background px-1 rounded font-body">
-                    VID
-                  </span>
-                )}
-              </motion.div>
-            ))}
+            {currentFolder.items.map((item, i) => {
+              const hasRealThumb = item.thumbnail && item.thumbnail !== '/placeholder.svg';
+              return (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: Math.min(i * 0.02, 0.5) }}
+                  onClick={() => setViewingItem(item)}
+                  className="aspect-square rounded-lg bg-accent border border-border relative overflow-hidden hover:border-rose-gold-light/60 transition-colors cursor-pointer"
+                >
+                  {hasRealThumb ? (
+                    item.type === 'video' ? (
+                      <video src={item.thumbnail} className="w-full h-full object-cover" muted />
+                    ) : (
+                      <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
+                    )
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      {item.type === 'video' ? (
+                        <Film className="w-5 h-5 text-rose-gold/50" />
+                      ) : (
+                        <ImageIcon className="w-5 h-5 text-muted-foreground/40" />
+                      )}
+                    </div>
+                  )}
+                  {item.type === 'video' && (
+                    <span className="absolute bottom-1 right-1 text-[10px] bg-foreground/70 text-background px-1 rounded font-body">
+                      VID
+                    </span>
+                  )}
+                </motion.div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -138,11 +151,18 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem }: WeddingDetai
               </div>
               {folder.items.length > 0 ? (
                 <div className="grid grid-cols-4 gap-1.5">
-                  {folder.items.slice(0, 8).map((item) => (
-                    <div key={item.id} className="aspect-square rounded bg-accent flex items-center justify-center">
-                      <ImageIcon className="w-3 h-3 text-muted-foreground/40" />
-                    </div>
-                  ))}
+                  {folder.items.slice(0, 8).map((item) => {
+                    const hasRealThumb = item.thumbnail && item.thumbnail !== '/placeholder.svg';
+                    return (
+                      <div key={item.id} className="aspect-square rounded bg-accent overflow-hidden flex items-center justify-center">
+                        {hasRealThumb ? (
+                          <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <ImageIcon className="w-3 h-3 text-muted-foreground/40" />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="h-12 flex items-center justify-center text-xs text-muted-foreground font-body">
