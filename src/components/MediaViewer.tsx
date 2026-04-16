@@ -13,6 +13,8 @@ const MediaViewer = ({ item, onClose, onDelete }: MediaViewerProps) => {
   const [playing, setPlaying] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const hasRealMedia = item.url && item.url !== '/placeholder.svg' && !item.url.startsWith('/placeholder');
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
