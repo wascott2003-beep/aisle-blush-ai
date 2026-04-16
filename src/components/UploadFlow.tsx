@@ -1,0 +1,165 @@
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { ArrowLeft, Upload, Calendar, CheckCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Wedding } from '@/lib/types';
+
+interface UploadFlowProps {
+  onBack: () => void;
+  onComplete: (wedding: Wedding) => void;
+}
+
+const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
+  const [step, setStep] = useState<'info' | 'upload' | 'sorting' | 'done'>('info');
+  const [name, setName] = useState('');
+  const [date, setDate] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setFiles(Array.from(e.target.files));
+    }
+  };
+
+  const handleUpload = () => {
+    setStep('sorting');
+    // Simulate AI sorting
+    setTimeout(() => {
+      setStep('done');
+    }, 2500);
+  };
+
+  const handleFinish = () => {
+    const folderNames = ['Getting Ready', 'Ceremony', 'Portraits', 'Reception', 'Details', 'Miscellaneous'];
+    const icons = ['Sparkles', 'Heart', 'Camera', 'PartyPopper', 'Gem', 'FolderOpen'];
+    const itemsPerFolder = Math.floor(files.length / 6);
+
+    const newWedding: Wedding = {
+      id: Date.now().toString(),
+      name,
+      date,
+      thumbnail: '',
+      mediaCount: files.length,
+      folders: folderNames.map((fn, i) => ({
+        name: fn,
+        icon: icons[i],
+        items: Array.from({ length: i < 5 ? itemsPerFolder : files.length - itemsPerFolder * 5 }, (_, j) => ({
+          id: `${fn}-${j}`,
+          type: 'photo' as const,
+          url: '/placeholder.svg',
+          thumbnail: '/placeholder.svg',
+          folder: fn,
+        })),
+      })),
+      shortClips: files.length > 10 ? [
+        { id: 'new-sc-1', type: 'video', url: '', thumbnail: '', duration: 1.4, folder: 'Reception' },
+        { id: 'new-sc-2', type: 'video', url: '', thumbnail: '', duration: 2.3, folder: 'Ceremony' },
+      ] : [],
+    };
+    onComplete(newWedding);
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <button onClick={onBack} className="flex items-center gap-2 text-muted-foreground hover:text-foreground font-body text-sm mb-6 transition-colors">
+        <ArrowLeft className="w-4 h-4" />
+        Back
+      </button>
+
+      {step === 'info' && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+          <div>
+            <h1 className="text-3xl font-heading font-semibold text-foreground">New Wedding Project</h1>
+            <p className="text-muted-foreground font-body mt-1">Enter the wedding details</p>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-body font-medium text-foreground mb-1.5">Wedding Name</label>
+              <Input
+                placeholder="e.g. Sarah & James"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="h-12 bg-card border-border rounded-lg font-body"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-body font-medium text-foreground mb-1.5">Wedding Date</label>
+              <Input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="h-12 bg-card border-border rounded-lg font-body"
+              />
+            </div>
+          </div>
+          <Button
+            onClick={() => setStep('upload')}
+            disabled={!name || !date}
+            className="w-full h-12 gradient-rose text-primary-foreground font-body font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            Continue
+          </Button>
+        </motion.div>
+      )}
+
+      {step === 'upload' && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+          <div>
+            <h1 className="text-3xl font-heading font-semibold text-foreground">Upload Media</h1>
+            <p className="text-muted-foreground font-body mt-1">{name} · {new Date(date).toLocaleDateString()}</p>
+          </div>
+
+          <label className="block border-2 border-dashed border-border rounded-xl p-12 text-center cursor-pointer hover:border-rose-gold/50 transition-colors bg-card">
+            <input type="file" multiple accept="image/*,video/*" onChange={handleFileChange} className="hidden" />
+            <Upload className="w-10 h-10 text-rose-gold/50 mx-auto mb-3" />
+            <p className="font-body text-foreground font-medium">
+              {files.length > 0 ? `${files.length} files selected` : 'Drop files or click to browse'}
+            </p>
+            <p className="text-xs text-muted-foreground font-body mt-1">Photos and videos</p>
+          </label>
+
+          <Button
+            onClick={handleUpload}
+            disabled={files.length === 0}
+            className="w-full h-12 gradient-rose text-primary-foreground font-body font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            Upload & Sort with AI
+          </Button>
+        </motion.div>
+      )}
+
+      {step === 'sorting' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20 space-y-4">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
+            className="w-16 h-16 rounded-full gradient-rose mx-auto flex items-center justify-center"
+          >
+            <span className="text-primary-foreground text-2xl">✨</span>
+          </motion.div>
+          <h2 className="font-heading text-2xl text-foreground">AI is sorting your media...</h2>
+          <p className="text-muted-foreground font-body">Organizing {files.length} files into folders</p>
+        </motion.div>
+      )}
+
+      {step === 'done' && (
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-20 space-y-4">
+          <CheckCircle className="w-16 h-16 text-rose-gold mx-auto" />
+          <h2 className="font-heading text-2xl text-foreground">All sorted!</h2>
+          <p className="text-muted-foreground font-body">
+            {files.length} files organized into 6 folders
+          </p>
+          <Button
+            onClick={handleFinish}
+            className="gradient-rose text-primary-foreground font-body font-medium hover:opacity-90"
+          >
+            View Wedding
+          </Button>
+        </motion.div>
+      )}
+    </div>
+  );
+};
+
+export default UploadFlow;
