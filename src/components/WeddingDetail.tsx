@@ -116,14 +116,14 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem }: WeddingDetai
             {' · '}{wedding.mediaCount} files
           </p>
         </div>
-        {wedding.shortClips.length > 0 && (
+        {wedding.flaggedItems.length > 0 && (
           <Button
             onClick={onReview}
             variant="outline"
             className="border-rose-gold text-rose-gold hover:bg-accent font-body"
           >
             <AlertTriangle className="w-4 h-4 mr-2" />
-            Review {wedding.shortClips.length} Short Clips
+            Review {wedding.flaggedItems.length} Flagged Item{wedding.flaggedItems.length > 1 ? 's' : ''}
           </Button>
         )}
       </div>

@@ -4,7 +4,8 @@ import { ArrowLeft, Upload, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Wedding } from '@/lib/types';
+import { Wedding, MediaItem } from '@/lib/types';
+import { analyzeImageQuality } from '@/lib/image-quality';
 
 interface UploadFlowProps {
   onBack: () => void;
@@ -17,6 +18,7 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
   const [date, setDate] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [flaggedItems, setFlaggedItems] = useState<MediaItem[]>([]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -45,23 +47,63 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
     return () => clearInterval(interval);
   }, [step]);
 
-  // Simulate AI sorting
+  // AI sorting + image quality analysis
   useEffect(() => {
     if (step !== 'sorting') return;
-    const timeout = setTimeout(() => setStep('done'), 2500);
-    return () => clearTimeout(timeout);
-  }, [step]);
+    let cancelled = false;
+
+    const analyzePhotos = async () => {
+      const photoFiles = files.filter((f) => f.type.startsWith('image/'));
+      const flagged: MediaItem[] = [];
+
+      for (let i = 0; i < photoFiles.length; i++) {
+        if (cancelled) return;
+        const file = photoFiles[i];
+        const result = await analyzeImageQuality(file);
+        if (result) {
+          flagged.push({
+            id: `lq-${i}`,
+            type: 'photo',
+            url: URL.createObjectURL(file),
+            thumbnail: URL.createObjectURL(file),
+            folder: 'Quality Check',
+            flagReason: 'low_quality_photo',
+          });
+        }
+      }
+
+      if (!cancelled) {
+        setFlaggedItems(flagged);
+        setStep('done');
+      }
+    };
+
+    analyzePhotos();
+    return () => { cancelled = true; };
+  }, [step, files]);
 
   const handleFinish = () => {
     const folderNames = ['Getting Ready', 'Ceremony', 'Portraits', 'Reception', 'Details', 'Miscellaneous'];
     const icons = ['Sparkles', 'Heart', 'Camera', 'PartyPopper', 'Gem', 'FolderOpen'];
 
-    // Separate photos and videos
     const photoFiles = files.filter((f) => f.type.startsWith('image/'));
     const videoFiles = files.filter((f) => f.type.startsWith('video/'));
     const allMedia = [...photoFiles, ...videoFiles];
-
     const itemsPerFolder = Math.max(1, Math.floor(allMedia.length / 6));
+
+    const shortClips: MediaItem[] = videoFiles.length > 0
+      ? videoFiles.slice(0, Math.min(3, videoFiles.length)).map((f, i) => ({
+          id: `new-sc-${i}`,
+          type: 'video' as const,
+          url: URL.createObjectURL(f),
+          thumbnail: URL.createObjectURL(f),
+          duration: 1.2 + Math.random(),
+          folder: folderNames[i % folderNames.length],
+          flagReason: 'short_clip' as const,
+        }))
+      : [];
+
+    const allFlagged = [...shortClips, ...flaggedItems];
 
     const newWedding: Wedding = {
       id: Date.now().toString(),
@@ -73,7 +115,6 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
         const start = i * itemsPerFolder;
         const end = i < 5 ? start + itemsPerFolder : allMedia.length;
         const folderFiles = allMedia.slice(start, Math.min(end, allMedia.length));
-
         return {
           name: fn,
           icon: icons[i],
@@ -86,16 +127,8 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
           })),
         };
       }),
-      shortClips: videoFiles.length > 0
-        ? videoFiles.slice(0, Math.min(3, videoFiles.length)).map((f, i) => ({
-            id: `new-sc-${i}`,
-            type: 'video' as const,
-            url: URL.createObjectURL(f),
-            thumbnail: URL.createObjectURL(f),
-            duration: 1.2 + Math.random(),
-            folder: folderNames[i % folderNames.length],
-          }))
-        : [],
+      shortClips,
+      flaggedItems: allFlagged,
     };
     onComplete(newWedding);
   };
@@ -186,7 +219,7 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
             <span className="text-primary-foreground text-2xl">✨</span>
           </motion.div>
           <h2 className="font-heading text-2xl text-foreground">AI is sorting your media...</h2>
-          <p className="text-muted-foreground font-body">Organizing {files.length} files into folders</p>
+          <p className="text-muted-foreground font-body">Organizing {files.length} files and checking quality</p>
         </motion.div>
       )}
 
@@ -194,7 +227,10 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-20 space-y-4">
           <CheckCircle className="w-16 h-16 text-rose-gold mx-auto" />
           <h2 className="font-heading text-2xl text-foreground">All sorted!</h2>
-          <p className="text-muted-foreground font-body">{files.length} files organized into 6 folders</p>
+          <p className="text-muted-foreground font-body">
+            {files.length} files organized into 6 folders
+            {flaggedItems.length > 0 && ` · ${flaggedItems.length} low quality photo${flaggedItems.length > 1 ? 's' : ''} flagged`}
+          </p>
           <Button onClick={handleFinish} className="gradient-rose text-primary-foreground font-body font-medium hover:opacity-90">
             View Wedding
           </Button>

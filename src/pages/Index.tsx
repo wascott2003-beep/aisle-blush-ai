@@ -47,14 +47,18 @@ const Index = () => {
       <>
         <AppNav currentPage={page} onNavigate={(p) => { setPage(p); setShowReview(false); setSelectedWeddingId(null); }} onLogout={() => setLoggedIn(false)} />
         <ReviewClips
-          clips={selectedWedding.shortClips}
+          clips={selectedWedding.flaggedItems}
           weddingName={selectedWedding.name}
           onBack={() => setShowReview(false)}
           onComplete={(kept, deleted) => {
             setWeddings((prev) =>
               prev.map((w) =>
                 w.id === selectedWedding.id
-                  ? { ...w, shortClips: w.shortClips.filter((c) => kept.includes(c.id)) }
+                  ? {
+                      ...w,
+                      shortClips: w.shortClips.filter((c) => kept.includes(c.id)),
+                      flaggedItems: w.flaggedItems.filter((c) => kept.includes(c.id)),
+                    }
                   : w
               )
             );
