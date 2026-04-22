@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Trash2, Check, Video, Clock, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Trash2, Check, Video, Clock, CheckCircle2, ImageIcon, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { MediaItem } from '@/lib/types';
 
 interface ReviewClipsProps {
@@ -38,13 +39,15 @@ const ReviewClips = ({ clips, weddingName, onBack, onComplete }: ReviewClipsProp
     advance();
   };
 
+  const isLowQuality = currentClip?.flagReason === 'low_quality_photo';
+  const isShortClip = currentClip?.flagReason === 'short_clip';
+
   if (done) {
-    // Auto-return after a moment
     return (
       <div className="max-w-lg mx-auto px-4 py-20 text-center">
         <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', duration: 0.5 }}>
           <CheckCircle2 className="w-16 h-16 text-rose-gold mx-auto mb-4" />
-          <h2 className="text-2xl font-heading font-semibold text-foreground mb-2">All clips reviewed</h2>
+          <h2 className="text-2xl font-heading font-semibold text-foreground mb-2">All items reviewed</h2>
           <p className="text-muted-foreground font-body mb-1">
             {kept.length} kept · {deleted.length} deleted
           </p>
@@ -67,9 +70,9 @@ const ReviewClips = ({ clips, weddingName, onBack, onComplete }: ReviewClipsProp
       </button>
 
       <div className="mb-6 text-center">
-        <h1 className="text-2xl font-heading font-semibold text-foreground">Review Short Clips</h1>
+        <h1 className="text-2xl font-heading font-semibold text-foreground">Review Flagged Items</h1>
         <p className="text-muted-foreground font-body text-sm mt-1">
-          Clip {currentIndex + 1} of {totalClips} · Under 3 seconds
+          Item {currentIndex + 1} of {totalClips}
         </p>
       </div>
 
@@ -82,21 +85,50 @@ const ReviewClips = ({ clips, weddingName, onBack, onComplete }: ReviewClipsProp
           transition={{ duration: 0.25 }}
           className="bg-card rounded-2xl border border-border p-6 flex flex-col items-center"
         >
-          {/* Video placeholder */}
-          <div className="w-full aspect-video rounded-xl bg-accent flex items-center justify-center mb-5">
-            <Video className="w-12 h-12 text-muted-foreground/30" />
+          {/* Flag badge */}
+          <div className="mb-4">
+            {isLowQuality && (
+              <Badge variant="outline" className="border-amber-500 text-amber-500 gap-1.5">
+                <AlertTriangle className="w-3 h-3" />
+                Low Quality Photo
+              </Badge>
+            )}
+            {isShortClip && (
+              <Badge variant="outline" className="border-rose-gold text-rose-gold gap-1.5">
+                <Clock className="w-3 h-3" />
+                Short Clip · Under 3s
+              </Badge>
+            )}
+          </div>
+
+          {/* Media preview */}
+          <div className="w-full aspect-video rounded-xl bg-accent flex items-center justify-center mb-5 overflow-hidden">
+            {currentClip.type === 'photo' && currentClip.thumbnail && currentClip.thumbnail !== '/placeholder.svg' ? (
+              <img src={currentClip.thumbnail} alt="" className="w-full h-full object-contain" />
+            ) : currentClip.type === 'video' ? (
+              <Video className="w-12 h-12 text-muted-foreground/30" />
+            ) : (
+              <ImageIcon className="w-12 h-12 text-muted-foreground/30" />
+            )}
           </div>
 
           {/* Info */}
           <p className="font-body text-sm font-medium text-foreground mb-1">
-            Clip from {currentClip.folder}
+            {isLowQuality ? 'Flagged photo' : 'Clip'} from {currentClip.folder}
           </p>
-          <div className="flex items-center gap-1.5 mb-6">
-            <Clock className="w-3.5 h-3.5 text-rose-gold" />
-            <span className="text-rose-gold font-body font-semibold text-sm">
-              {currentClip.duration?.toFixed(1)}s
-            </span>
-          </div>
+          {isShortClip && currentClip.duration && (
+            <div className="flex items-center gap-1.5 mb-6">
+              <Clock className="w-3.5 h-3.5 text-rose-gold" />
+              <span className="text-rose-gold font-body font-semibold text-sm">
+                {currentClip.duration.toFixed(1)}s
+              </span>
+            </div>
+          )}
+          {isLowQuality && (
+            <p className="text-xs text-muted-foreground font-body mb-6">
+              This photo may be blurry or too dark
+            </p>
+          )}
 
           {/* Action buttons */}
           <div className="flex gap-4 w-full">
@@ -120,7 +152,7 @@ const ReviewClips = ({ clips, weddingName, onBack, onComplete }: ReviewClipsProp
       </AnimatePresence>
 
       {/* Progress dots */}
-      <div className="flex justify-center gap-2 mt-6">
+      <div className="flex justify-center gap-2 mt-6 flex-wrap">
         {clips.map((clip, i) => (
           <div
             key={clip.id}
