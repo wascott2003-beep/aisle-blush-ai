@@ -18,9 +18,14 @@ export const mockWeddings: Wedding[] = [
       { name: 'Miscellaneous', icon: 'FolderOpen', items: Array.from({ length: 20 }, (_, i) => ({ id: `mi-${i}`, type: 'photo', url: placeholderThumb, thumbnail: placeholderThumb, folder: 'Miscellaneous' })) },
     ],
     shortClips: [
-      { id: 'sc-1', type: 'video', url: placeholderThumb, thumbnail: placeholderThumb, duration: 1.2, folder: 'Ceremony' },
-      { id: 'sc-2', type: 'video', url: placeholderThumb, thumbnail: placeholderThumb, duration: 2.1, folder: 'Reception' },
-      { id: 'sc-3', type: 'video', url: placeholderThumb, thumbnail: placeholderThumb, duration: 0.8, folder: 'Getting Ready' },
+      { id: 'sc-1', type: 'video', url: placeholderThumb, thumbnail: placeholderThumb, duration: 1.2, folder: 'Ceremony', flagReason: 'short_clip' },
+      { id: 'sc-2', type: 'video', url: placeholderThumb, thumbnail: placeholderThumb, duration: 2.1, folder: 'Reception', flagReason: 'short_clip' },
+      { id: 'sc-3', type: 'video', url: placeholderThumb, thumbnail: placeholderThumb, duration: 0.8, folder: 'Getting Ready', flagReason: 'short_clip' },
+    ],
+    flaggedItems: [
+      { id: 'sc-1', type: 'video', url: placeholderThumb, thumbnail: placeholderThumb, duration: 1.2, folder: 'Ceremony', flagReason: 'short_clip' },
+      { id: 'sc-2', type: 'video', url: placeholderThumb, thumbnail: placeholderThumb, duration: 2.1, folder: 'Reception', flagReason: 'short_clip' },
+      { id: 'sc-3', type: 'video', url: placeholderThumb, thumbnail: placeholderThumb, duration: 0.8, folder: 'Getting Ready', flagReason: 'short_clip' },
     ],
   },
   {
@@ -38,6 +43,7 @@ export const mockWeddings: Wedding[] = [
       { name: 'Miscellaneous', icon: 'FolderOpen', items: [] },
     ],
     shortClips: [],
+    flaggedItems: [],
   },
   {
     id: '3',
@@ -54,7 +60,10 @@ export const mockWeddings: Wedding[] = [
       { name: 'Miscellaneous', icon: 'FolderOpen', items: [] },
     ],
     shortClips: [
-      { id: 'sc-4', type: 'video', url: placeholderThumb, thumbnail: placeholderThumb, duration: 1.5, folder: 'Details' },
+      { id: 'sc-4', type: 'video', url: placeholderThumb, thumbnail: placeholderThumb, duration: 1.5, folder: 'Details', flagReason: 'short_clip' },
+    ],
+    flaggedItems: [
+      { id: 'sc-4', type: 'video', url: placeholderThumb, thumbnail: placeholderThumb, duration: 1.5, folder: 'Details', flagReason: 'short_clip' },
     ],
   },
 ];
