@@ -6,6 +6,7 @@ export interface Wedding {
   mediaCount: number;
   folders: MediaFolder[];
   shortClips: MediaItem[];
+  flaggedItems: MediaItem[];
 }
 
 export interface MediaFolder {
@@ -21,6 +22,7 @@ export interface MediaItem {
   thumbnail: string;
   duration?: number; // seconds, for video
   folder: string;
+  flagReason?: 'short_clip' | 'low_quality_photo';
 }
 
 export type AppView = 'login' | 'dashboard' | 'wedding' | 'upload' | 'review' | 'settings';
