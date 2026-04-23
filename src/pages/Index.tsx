@@ -71,6 +71,15 @@ const Index = () => {
     );
   }
 
+  if (showReel && selectedWedding) {
+    return (
+      <>
+        <AppNav currentPage={page} onNavigate={(p) => { setPage(p); setShowReel(false); setSelectedWeddingId(null); }} onLogout={() => setLoggedIn(false)} />
+        <ReelCreator weddingName={selectedWedding.name} onBack={() => setShowReel(false)} />
+      </>
+    );
+  }
+
   if (selectedWedding) {
     return (
       <>
