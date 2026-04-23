@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Sparkles, Heart, Camera, PartyPopper, Gem, FolderOpen, AlertTriangle, Image as ImageIcon, Film } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Wedding, MediaFolder, MediaItem } from '@/lib/types';
+import { Wedding, MediaFolder, MediaItem, Vendor } from '@/lib/types';
 import MediaViewer from '@/components/MediaViewer';
+import VendorSection from '@/components/VendorSection';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Sparkles, Heart, Camera, PartyPopper, Gem, FolderOpen,
@@ -14,9 +15,10 @@ interface WeddingDetailProps {
   onBack: () => void;
   onReview: () => void;
   onDeleteItem?: (folderName: string, itemId: string) => void;
+  onUpdateVendors?: (vendors: Vendor[]) => void;
 }
 
-const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem }: WeddingDetailProps) => {
+const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendors }: WeddingDetailProps) => {
   const [openFolder, setOpenFolder] = useState<MediaFolder | null>(null);
   const [viewingItem, setViewingItem] = useState<MediaItem | null>(null);
 
@@ -173,6 +175,12 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem }: WeddingDetai
           );
         })}
       </div>
+
+      {/* Vendors Section */}
+      <VendorSection
+        vendors={wedding.vendors || []}
+        onUpdate={(vendors) => onUpdateVendors?.(vendors)}
+      />
     </div>
   );
 };
