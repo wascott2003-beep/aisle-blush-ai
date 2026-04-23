@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Sparkles, Heart, Camera, PartyPopper, Gem, FolderOpen, AlertTriangle, Image as ImageIcon, Film } from 'lucide-react';
+import { ArrowLeft, Sparkles, Heart, Camera, PartyPopper, Gem, FolderOpen, AlertTriangle, Image as ImageIcon, Film, Clapperboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Wedding, MediaFolder, MediaItem, Vendor } from '@/lib/types';
 import MediaViewer from '@/components/MediaViewer';
