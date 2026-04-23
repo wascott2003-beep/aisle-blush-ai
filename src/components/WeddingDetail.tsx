@@ -16,9 +16,10 @@ interface WeddingDetailProps {
   onReview: () => void;
   onDeleteItem?: (folderName: string, itemId: string) => void;
   onUpdateVendors?: (vendors: Vendor[]) => void;
+  onCreateReel?: () => void;
 }
 
-const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendors }: WeddingDetailProps) => {
+const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendors, onCreateReel }: WeddingDetailProps) => {
   const [openFolder, setOpenFolder] = useState<MediaFolder | null>(null);
   const [viewingItem, setViewingItem] = useState<MediaItem | null>(null);
 
