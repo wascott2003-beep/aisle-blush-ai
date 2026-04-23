@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Pencil, Trash2, Globe, X, Store } from 'lucide-react';
+import { Plus, Pencil, Trash2, Globe, X, Store, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,6 +16,7 @@ const emptyForm = { type: '' as VendorType, businessName: '', instagram: '', web
 
 const VendorSection = ({ vendors, onUpdate }: VendorSectionProps) => {
   const [showForm, setShowForm] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
 
@@ -46,10 +47,34 @@ const VendorSection = ({ vendors, onUpdate }: VendorSectionProps) => {
 
   const remove = (id: string) => onUpdate(vendors.filter((v) => v.id !== id));
 
+  const copyCaption = () => {
+    const labelMap: Record<string, string> = {
+      'Photographer': 'Photography', 'Videographer': 'Videography', 'Florist': 'Florals',
+      'Planner & Coordinator': 'Planning', 'Venue': 'Venue', 'Hair & Makeup': 'Hair & Makeup',
+      'DJ & Music': 'Music', 'Catering': 'Catering', 'Wedding Dress': 'Dress',
+      'Cake & Desserts': 'Cake', 'Other': 'Vendor',
+    };
+    const lines = vendors.map((v) => `${labelMap[v.type] || v.type}: @${v.instagram}`);
+    navigator.clipboard.writeText(lines.join('\n'));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div className="mt-10">
       <div className="flex items-center justify-between mb-5">
-        <h2 className="text-xl font-heading font-semibold text-foreground">Vendors</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-heading font-semibold text-foreground">Vendors</h2>
+          {vendors.length > 0 && (
+            <button
+              onClick={copyCaption}
+              className="flex items-center gap-1 text-xs font-body text-muted-foreground hover:text-rose-gold transition-colors"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? <span className="text-emerald-500">Caption copied!</span> : 'Copy Caption'}
+            </button>
+          )}
+        </div>
         <Button onClick={openAdd} variant="outline" size="sm" className="border-rose-gold text-rose-gold hover:bg-accent font-body">
           <Plus className="w-4 h-4 mr-1" /> Add Vendor
         </Button>
