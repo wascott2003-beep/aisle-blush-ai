@@ -119,16 +119,26 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
             {' · '}{wedding.mediaCount} files
           </p>
         </div>
-        {wedding.flaggedItems.length > 0 && (
+        <div className="flex flex-wrap gap-2">
           <Button
-            onClick={onReview}
+            onClick={onCreateReel}
             variant="outline"
             className="border-rose-gold text-rose-gold hover:bg-accent font-body"
           >
-            <AlertTriangle className="w-4 h-4 mr-2" />
-            Review {wedding.flaggedItems.length} Flagged Item{wedding.flaggedItems.length > 1 ? 's' : ''}
+            <Clapperboard className="w-4 h-4 mr-2" />
+            Create Reel
           </Button>
-        )}
+          {wedding.flaggedItems.length > 0 && (
+            <Button
+              onClick={onReview}
+              variant="outline"
+              className="border-rose-gold text-rose-gold hover:bg-accent font-body"
+            >
+              <AlertTriangle className="w-4 h-4 mr-2" />
+              Review {wedding.flaggedItems.length} Flagged Item{wedding.flaggedItems.length > 1 ? 's' : ''}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">

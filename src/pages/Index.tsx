@@ -5,6 +5,7 @@ import Dashboard from '@/components/Dashboard';
 import WeddingDetail from '@/components/WeddingDetail';
 import UploadFlow from '@/components/UploadFlow';
 import ReviewClips from '@/components/ReviewClips';
+import ReelCreator from '@/components/ReelCreator';
 import AccountSettings from '@/components/AccountSettings';
 import WeddingLibrary from '@/components/WeddingLibrary';
 import { Wedding } from '@/lib/types';
@@ -19,6 +20,7 @@ const Index = () => {
   const [selectedWeddingId, setSelectedWeddingId] = useState<string | null>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [showReview, setShowReview] = useState(false);
+  const [showReel, setShowReel] = useState(false);
 
   if (!loggedIn) {
     return <LoginScreen onLogin={() => setLoggedIn(true)} />;
