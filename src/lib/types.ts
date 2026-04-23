@@ -1,3 +1,19 @@
+export const VENDOR_TYPES = [
+  'Photographer', 'Videographer', 'Florist', 'Planner & Coordinator',
+  'Venue', 'Hair & Makeup', 'DJ & Music', 'Catering',
+  'Wedding Dress', 'Cake & Desserts', 'Other',
+] as const;
+
+export type VendorType = typeof VENDOR_TYPES[number];
+
+export interface Vendor {
+  id: string;
+  type: VendorType;
+  businessName: string;
+  instagram: string;
+  website?: string;
+}
+
 export interface Wedding {
   id: string;
   name: string;
@@ -7,6 +23,7 @@ export interface Wedding {
   folders: MediaFolder[];
   shortClips: MediaItem[];
   flaggedItems: MediaItem[];
+  vendors: Vendor[];
 }
 
 export interface MediaFolder {
