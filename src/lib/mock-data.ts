@@ -27,6 +27,7 @@ export const mockWeddings: Wedding[] = [
       { id: 'sc-2', type: 'video', url: placeholderThumb, thumbnail: placeholderThumb, duration: 2.1, folder: 'Reception', flagReason: 'short_clip' },
       { id: 'sc-3', type: 'video', url: placeholderThumb, thumbnail: placeholderThumb, duration: 0.8, folder: 'Getting Ready', flagReason: 'short_clip' },
     ],
+    vendors: [],
   },
   {
     id: '2',
@@ -44,6 +45,7 @@ export const mockWeddings: Wedding[] = [
     ],
     shortClips: [],
     flaggedItems: [],
+    vendors: [],
   },
   {
     id: '3',
@@ -65,5 +67,6 @@ export const mockWeddings: Wedding[] = [
     flaggedItems: [
       { id: 'sc-4', type: 'video', url: placeholderThumb, thumbnail: placeholderThumb, duration: 1.5, folder: 'Details', flagReason: 'short_clip' },
     ],
+    vendors: [],
   },
 ];

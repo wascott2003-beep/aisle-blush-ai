@@ -136,7 +136,7 @@ const VendorSection = ({ vendors, onUpdate }: VendorSectionProps) => {
               <h4 className="font-heading font-medium text-foreground text-sm">{v.businessName}</h4>
               <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground font-body">
                 <a href={`https://instagram.com/${v.instagram}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-rose-gold transition-colors">
-                  <Instagram className="w-3.5 h-3.5" /> @{v.instagram}
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" /><circle cx="12" cy="12" r="5" /><circle cx="17.5" cy="6.5" r="1.5" /></svg> @{v.instagram}
                 </a>
                 {v.website && (
                   <a href={v.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-rose-gold transition-colors">

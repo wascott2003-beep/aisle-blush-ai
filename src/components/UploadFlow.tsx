@@ -129,6 +129,7 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
       }),
       shortClips,
       flaggedItems: allFlagged,
+      vendors: [],
     };
     onComplete(newWedding);
   };
