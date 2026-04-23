@@ -88,6 +88,7 @@ const Index = () => {
           wedding={selectedWedding}
           onBack={() => setSelectedWeddingId(null)}
           onReview={() => setShowReview(true)}
+          onCreateReel={() => setShowReel(true)}
           onDeleteItem={(folderName, itemId) => {
             setWeddings((prev) =>
               prev.map((w) =>
