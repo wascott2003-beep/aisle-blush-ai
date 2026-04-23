@@ -94,6 +94,11 @@ const Index = () => {
               )
             );
           }}
+          onUpdateVendors={(vendors) => {
+            setWeddings((prev) =>
+              prev.map((w) => w.id === selectedWedding.id ? { ...w, vendors } : w)
+            );
+          }}
         />
       </>
     );
