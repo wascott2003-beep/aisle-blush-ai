@@ -4,13 +4,17 @@ import { ArrowLeft, Upload, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Wedding, MediaItem } from '@/lib/types';
+import { MediaItem } from '@/lib/types';
 import { analyzeImageQuality } from '@/lib/image-quality';
+import { supabase } from '@/integrations/supabase/client';
+import { createWeddingInDb, uploadMediaFile, insertMediaItem } from '@/lib/supabase-helpers';
 
 interface UploadFlowProps {
   onBack: () => void;
-  onComplete: (wedding: Wedding) => void;
+  onComplete: () => void;
 }
+
+const FOLDER_NAMES = ['Getting Ready', 'Ceremony', 'Portraits', 'Reception', 'Details', 'Miscellaneous'];
 
 const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
   const [step, setStep] = useState<'info' | 'upload' | 'uploading' | 'sorting' | 'done'>('info');
@@ -18,7 +22,7 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
   const [date, setDate] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [flaggedItems, setFlaggedItems] = useState<MediaItem[]>([]);
+  const [flaggedCount, setFlaggedCount] = useState(0);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -26,112 +30,76 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
     }
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     setStep('uploading');
     setUploadProgress(0);
-  };
 
-  // Simulate upload progress
-  useEffect(() => {
-    if (step !== 'uploading') return;
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setStep('sorting');
-          return 100;
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Create wedding in DB
+      const weddingId = await createWeddingInDb(user.id, name, date);
+
+      // Upload files and create media items
+      const totalFiles = files.length;
+      let uploaded = 0;
+      let flagged = 0;
+
+      for (const file of files) {
+        const isPhoto = file.type.startsWith('image/');
+        const isVideo = file.type.startsWith('video/');
+        if (!isPhoto && !isVideo) { uploaded++; continue; }
+
+        // Assign to a folder (distribute evenly)
+        const folderIdx = uploaded % FOLDER_NAMES.length;
+        const folder = FOLDER_NAMES[folderIdx];
+
+        const { storagePath } = await uploadMediaFile(weddingId, file, folder);
+
+        // Check quality for photos
+        let flagReason: string | null = null;
+        if (isPhoto) {
+          const result = await analyzeImageQuality(file);
+          if (result) {
+            flagReason = result;
+            flagged++;
+          }
         }
-        return prev + Math.random() * 15 + 5;
-      });
-    }, 300);
-    return () => clearInterval(interval);
-  }, [step]);
 
-  // AI sorting + image quality analysis
-  useEffect(() => {
-    if (step !== 'sorting') return;
-    let cancelled = false;
-
-    const analyzePhotos = async () => {
-      const photoFiles = files.filter((f) => f.type.startsWith('image/'));
-      const flagged: MediaItem[] = [];
-
-      for (let i = 0; i < photoFiles.length; i++) {
-        if (cancelled) return;
-        const file = photoFiles[i];
-        const result = await analyzeImageQuality(file);
-        if (result) {
-          flagged.push({
-            id: `lq-${i}`,
-            type: 'photo',
-            url: URL.createObjectURL(file),
-            thumbnail: URL.createObjectURL(file),
-            folder: 'Quality Check',
-            flagReason: 'low_quality_photo',
-          });
+        // Check for short clips (videos under 3s)
+        let duration: number | null = null;
+        if (isVideo) {
+          duration = await getVideoDuration(file);
+          if (duration !== null && duration < 3) {
+            flagReason = 'short_clip';
+            flagged++;
+          }
         }
+
+        await insertMediaItem({
+          wedding_id: weddingId,
+          type: isVideo ? 'video' : 'photo',
+          folder,
+          storage_path: storagePath,
+          flag_reason: flagReason,
+          duration,
+        });
+
+        uploaded++;
+        setUploadProgress((uploaded / totalFiles) * 100);
       }
 
-      if (!cancelled) {
-        setFlaggedItems(flagged);
-        setStep('done');
-      }
-    };
+      setFlaggedCount(flagged);
+      setStep('sorting');
 
-    analyzePhotos();
-    return () => { cancelled = true; };
-  }, [step, files]);
-
-  const handleFinish = () => {
-    const folderNames = ['Getting Ready', 'Ceremony', 'Portraits', 'Reception', 'Details', 'Miscellaneous'];
-    const icons = ['Sparkles', 'Heart', 'Camera', 'PartyPopper', 'Gem', 'FolderOpen'];
-
-    const photoFiles = files.filter((f) => f.type.startsWith('image/'));
-    const videoFiles = files.filter((f) => f.type.startsWith('video/'));
-    const allMedia = [...photoFiles, ...videoFiles];
-    const itemsPerFolder = Math.max(1, Math.floor(allMedia.length / 6));
-
-    const shortClips: MediaItem[] = videoFiles.length > 0
-      ? videoFiles.slice(0, Math.min(3, videoFiles.length)).map((f, i) => ({
-          id: `new-sc-${i}`,
-          type: 'video' as const,
-          url: URL.createObjectURL(f),
-          thumbnail: URL.createObjectURL(f),
-          duration: 1.2 + Math.random(),
-          folder: folderNames[i % folderNames.length],
-          flagReason: 'short_clip' as const,
-        }))
-      : [];
-
-    const allFlagged = [...shortClips, ...flaggedItems];
-
-    const newWedding: Wedding = {
-      id: Date.now().toString(),
-      name,
-      date,
-      thumbnail: photoFiles.length > 0 ? URL.createObjectURL(photoFiles[0]) : '',
-      mediaCount: files.length,
-      folders: folderNames.map((fn, i) => {
-        const start = i * itemsPerFolder;
-        const end = i < 5 ? start + itemsPerFolder : allMedia.length;
-        const folderFiles = allMedia.slice(start, Math.min(end, allMedia.length));
-        return {
-          name: fn,
-          icon: icons[i],
-          items: folderFiles.map((file, j) => ({
-            id: `${fn}-${j}`,
-            type: file.type.startsWith('video/') ? 'video' as const : 'photo' as const,
-            url: URL.createObjectURL(file),
-            thumbnail: URL.createObjectURL(file),
-            folder: fn,
-          })),
-        };
-      }),
-      shortClips,
-      flaggedItems: allFlagged,
-      vendors: [],
-    };
-    onComplete(newWedding);
+      // Brief sorting animation
+      setTimeout(() => setStep('done'), 2000);
+    } catch (err) {
+      console.error('Upload error:', err);
+      setStep('upload');
+    }
   };
 
   return (
@@ -230,9 +198,9 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
           <h2 className="font-heading text-2xl text-foreground">All sorted!</h2>
           <p className="text-muted-foreground font-body">
             {files.length} files organized into 6 folders
-            {flaggedItems.length > 0 && ` · ${flaggedItems.length} low quality photo${flaggedItems.length > 1 ? 's' : ''} flagged`}
+            {flaggedCount > 0 && ` · ${flaggedCount} item${flaggedCount > 1 ? 's' : ''} flagged for review`}
           </p>
-          <Button onClick={handleFinish} className="gradient-rose text-primary-foreground font-body font-medium hover:opacity-90">
+          <Button onClick={onComplete} className="gradient-rose text-primary-foreground font-body font-medium hover:opacity-90">
             View Wedding
           </Button>
         </motion.div>
@@ -240,5 +208,18 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
     </div>
   );
 };
+
+function getVideoDuration(file: File): Promise<number | null> {
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(video.src);
+      resolve(video.duration);
+    };
+    video.onerror = () => resolve(null);
+    video.src = URL.createObjectURL(file);
+  });
+}
 
 export default UploadFlow;
