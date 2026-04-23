@@ -14,7 +14,109 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      media_items: {
+        Row: {
+          created_at: string
+          duration: number | null
+          flag_reason: string | null
+          folder: string
+          id: string
+          storage_path: string
+          type: string
+          wedding_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration?: number | null
+          flag_reason?: string | null
+          folder: string
+          id?: string
+          storage_path: string
+          type: string
+          wedding_id: string
+        }
+        Update: {
+          created_at?: string
+          duration?: number | null
+          flag_reason?: string | null
+          folder?: string
+          id?: string
+          storage_path?: string
+          type?: string
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_items_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendors: {
+        Row: {
+          business_name: string
+          created_at: string
+          id: string
+          instagram: string
+          type: string
+          website: string | null
+          wedding_id: string
+        }
+        Insert: {
+          business_name: string
+          created_at?: string
+          id?: string
+          instagram: string
+          type: string
+          website?: string | null
+          wedding_id: string
+        }
+        Update: {
+          business_name?: string
+          created_at?: string
+          id?: string
+          instagram?: string
+          type?: string
+          website?: string | null
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendors_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weddings: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
