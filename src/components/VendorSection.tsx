@@ -16,6 +16,7 @@ const emptyForm = { type: '' as VendorType, businessName: '', instagram: '', web
 
 const VendorSection = ({ vendors, onUpdate }: VendorSectionProps) => {
   const [showForm, setShowForm] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
 
