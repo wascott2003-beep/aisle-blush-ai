@@ -6,32 +6,37 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { analyzeImageQuality } from '@/lib/image-quality';
 import { supabase } from '@/integrations/supabase/client';
-import { createWeddingInDb, deleteWeddingById, insertMediaItem, uploadMediaFile } from '@/lib/supabase-helpers';
+import {
+  createWeddingInDb,
+  deleteWeddingById,
+  insertMediaItem,
+  uploadMediaFile,
+} from '@/lib/supabase-helpers';
+import { generatePhotoPreview, generateVideoPoster } from '@/lib/poster-frame';
+import { enqueueUpload } from '@/lib/upload-queue';
 
 interface UploadFlowProps {
   onBack: () => void;
-  onComplete: () => void;
+  onComplete: (weddingId?: string) => void;
 }
 
 const FOLDER_NAMES = ['Getting Ready', 'Ceremony', 'Portraits', 'Reception', 'Details', 'Miscellaneous'];
-const MAX_PARALLEL_UPLOADS = 2;
-// Allow up to 10 minutes per file so very large videos on slow connections still finish
-const PER_FILE_TIMEOUT_MS = 10 * 60 * 1000;
 // Cap individual file size at 500MB (Supabase storage default upper limit)
 const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024;
 const VIDEO_METADATA_TIMEOUT_MS = 8000;
-const RENDER_DELAY_MS = 50;
+const PER_PREVIEW_TIMEOUT_MS = 30 * 1000;
 
 const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
-  const [step, setStep] = useState<'info' | 'upload' | 'uploading' | 'sorting' | 'done'>('info');
+  const [step, setStep] = useState<'info' | 'upload' | 'preparing' | 'done'>('info');
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
   const [files, setFiles] = useState<File[]>([]);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [prepProgress, setPrepProgress] = useState(0);
+  const [prepStatus, setPrepStatus] = useState('Preparing previews...');
   const [flaggedCount, setFlaggedCount] = useState(0);
   const [failedCount, setFailedCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [uploadStatus, setUploadStatus] = useState('Preparing upload...');
+  const [createdWeddingId, setCreatedWeddingId] = useState<string | null>(null);
 
   const mediaFiles = useMemo(
     () => files.filter((f) => isSupportedMediaFile(f) && f.size <= MAX_FILE_SIZE_BYTES),
@@ -69,91 +74,63 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
       return;
     }
 
-    setStep('uploading');
-    setUploadProgress(0);
-    setUploadStatus('Preparing your files...');
+    setStep('preparing');
+    setPrepProgress(0);
+    setPrepStatus('Creating instant previews...');
     setErrorMessage(null);
     setFailedCount(0);
     setFlaggedCount(0);
 
     let weddingId: string | null = null;
-    let successCount = 0;
+    let prepared = 0;
+    let flagged = 0;
+    let failed = 0;
 
     try {
-      await delay(RENDER_DELAY_MS);
-
       const {
         data: { user },
       } = await supabase.auth.getUser();
-
-      if (!user) {
-        throw new Error('Not authenticated');
-      }
+      if (!user) throw new Error('Not authenticated');
 
       weddingId = await createWeddingInDb(user.id, name, date);
+      setCreatedWeddingId(weddingId);
 
-      let completed = 0;
-      let flagged = 0;
-      let failed = 0;
-
-      for (let start = 0; start < mediaFiles.length; start += MAX_PARALLEL_UPLOADS) {
-        const batch = mediaFiles.slice(start, start + MAX_PARALLEL_UPLOADS);
-        const batchStart = start + 1;
-        const batchEnd = Math.min(start + batch.length, mediaFiles.length);
-
-        setUploadStatus(`Uploading ${batchStart}-${batchEnd} of ${mediaFiles.length}...`);
-
-        const results = await Promise.allSettled(
-          batch.map(async (file, batchIndex) => {
-            try {
-              const result = await withTimeout(
-                processMediaFile(weddingId as string, file, start + batchIndex),
-                PER_FILE_TIMEOUT_MS,
-                `Upload timed out for ${file.name}`,
-              );
-
-              successCount += 1;
-              if (result.flagged) {
-                flagged += 1;
-              }
-            } finally {
-              completed += 1;
-              setUploadProgress((completed / mediaFiles.length) * 100);
-            }
-          }),
-        );
-
-        results.forEach((result) => {
-          if (result.status === 'rejected') {
-            failed += 1;
-            console.error('File upload failed:', result.reason);
-          }
-        });
+      // Process each file: generate small preview, upload preview, insert pending row, enqueue original.
+      for (let i = 0; i < mediaFiles.length; i++) {
+        const file = mediaFiles[i];
+        setPrepStatus(`Preparing ${i + 1} of ${mediaFiles.length}: ${file.name}`);
+        try {
+          const result = await withTimeout(
+            prepareAndQueue(weddingId, file, i),
+            PER_PREVIEW_TIMEOUT_MS,
+            `Preview generation timed out for ${file.name}`,
+          );
+          if (result.flagged) flagged += 1;
+        } catch (err) {
+          console.error('Failed to prepare file:', file.name, err);
+          failed += 1;
+        } finally {
+          prepared += 1;
+          setPrepProgress((prepared / mediaFiles.length) * 100);
+        }
       }
 
-      if (successCount === 0) {
-        throw new Error('All uploads failed');
-      }
+      if (prepared - failed === 0) throw new Error('All files failed to prepare');
 
       setFlaggedCount(flagged);
       setFailedCount(failed);
-      setUploadProgress(100);
-      setUploadStatus('Finishing up...');
-      setStep('sorting');
-
-      setTimeout(() => setStep('done'), 1500);
+      setPrepProgress(100);
+      setStep('done');
     } catch (err) {
-      console.error('Upload error:', err);
-
-      if (weddingId && successCount === 0) {
+      console.error('Upload prep error:', err);
+      if (weddingId && prepared - failed === 0) {
         try {
           await deleteWeddingById(weddingId);
         } catch (cleanupError) {
           console.error('Failed to clean up empty wedding:', cleanupError);
         }
       }
-
-      setErrorMessage('Upload failed. Try a smaller batch, then retry.');
+      setErrorMessage('Could not prepare your files. Please try again with a smaller batch.');
       setStep('upload');
     }
   };
@@ -199,7 +176,7 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
             <p className="font-body text-foreground font-medium">
               {files.length > 0 ? `${mediaFiles.length} supported file${mediaFiles.length === 1 ? '' : 's'} selected` : 'Drop files or click to browse'}
             </p>
-            <p className="text-xs text-muted-foreground font-body mt-1">Photos and videos</p>
+            <p className="text-xs text-muted-foreground font-body mt-1">Photos and videos · originals upload in the background</p>
             {skippedCount > 0 && (
               <p className="text-xs text-muted-foreground font-body mt-1">{skippedCount} unsupported file{skippedCount === 1 ? '' : 's'} will be skipped</p>
             )}
@@ -236,40 +213,36 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
         </motion.div>
       )}
 
-      {step === 'uploading' && (
+      {step === 'preparing' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20 space-y-6">
           <Upload className="w-12 h-12 text-rose-gold mx-auto animate-pulse" />
           <div>
-            <h2 className="font-heading text-2xl text-foreground mb-2">Uploading {mediaFiles.length} files...</h2>
-            <p className="text-muted-foreground font-body text-sm">{uploadStatus}</p>
-            <p className="text-muted-foreground font-body text-sm mb-4">{Math.min(Math.round(uploadProgress), 100)}%</p>
+            <h2 className="font-heading text-2xl text-foreground mb-2">Preparing your files...</h2>
+            <p className="text-muted-foreground font-body text-sm">{prepStatus}</p>
+            <p className="text-muted-foreground font-body text-sm mb-4">{Math.min(Math.round(prepProgress), 100)}%</p>
             <div className="max-w-sm mx-auto">
-              <Progress value={Math.min(uploadProgress, 100)} className="h-2 bg-accent [&>div]:bg-rose-gold" />
+              <Progress value={Math.min(prepProgress, 100)} className="h-2 bg-accent [&>div]:bg-rose-gold" />
             </div>
+            <p className="text-xs text-muted-foreground font-body mt-4 max-w-sm mx-auto">
+              Creating instant previews so you can see everything right away. Originals upload in the background.
+            </p>
           </div>
-        </motion.div>
-      )}
-
-      {step === 'sorting' && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20 space-y-4">
-          <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: 'linear' }} className="w-16 h-16 rounded-full gradient-rose mx-auto flex items-center justify-center">
-            <span className="text-primary-foreground text-2xl">✨</span>
-          </motion.div>
-          <h2 className="font-heading text-2xl text-foreground">AI is sorting your media...</h2>
-          <p className="text-muted-foreground font-body">Organizing {mediaFiles.length} files and checking quality</p>
         </motion.div>
       )}
 
       {step === 'done' && (
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-20 space-y-4">
           <CheckCircle className="w-16 h-16 text-rose-gold mx-auto" />
-          <h2 className="font-heading text-2xl text-foreground">All sorted!</h2>
+          <h2 className="font-heading text-2xl text-foreground">Ready to view!</h2>
           <p className="text-muted-foreground font-body">
-            {Math.max(mediaFiles.length - failedCount, 0)} files organized into 6 folders
-            {flaggedCount > 0 && ` · ${flaggedCount} item${flaggedCount > 1 ? 's' : ''} flagged for review`}
+            {Math.max(mediaFiles.length - failedCount, 0)} file{mediaFiles.length - failedCount === 1 ? '' : 's'} ready to browse
+            {flaggedCount > 0 && ` · ${flaggedCount} flagged for review`}
             {failedCount > 0 && ` · ${failedCount} failed`}
           </p>
-          <Button onClick={onComplete} className="gradient-rose text-primary-foreground font-body font-medium hover:opacity-90">
+          <p className="text-xs text-muted-foreground font-body max-w-sm mx-auto">
+            Originals are uploading in the background — you can keep using the app.
+          </p>
+          <Button onClick={() => onComplete(createdWeddingId || undefined)} className="gradient-rose text-primary-foreground font-body font-medium hover:opacity-90">
             View Wedding
           </Button>
         </motion.div>
@@ -278,37 +251,86 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
   );
 };
 
-async function processMediaFile(weddingId: string, file: File, fileIndex: number): Promise<{ flagged: boolean }> {
+async function prepareAndQueue(weddingId: string, file: File, fileIndex: number): Promise<{ flagged: boolean }> {
   const isPhoto = file.type.startsWith('image/');
   const isVideo = file.type.startsWith('video/');
   const folder = FOLDER_NAMES[fileIndex % FOLDER_NAMES.length];
 
-  const { storagePath } = await uploadMediaFile(weddingId, file, folder);
-
   let flagReason: string | null = null;
   let duration: number | null = null;
+  let previewBlob: Blob | null = null;
 
   if (isPhoto) {
-    flagReason = await analyzeImageQuality(file);
+    flagReason = await analyzeImageQuality(file).catch(() => null);
+    previewBlob = await generatePhotoPreview(file).catch(() => null);
   }
 
   if (isVideo) {
     duration = await getVideoDuration(file);
-    if (duration !== null && duration < 3) {
-      flagReason = 'short_clip';
+    if (duration !== null && duration < 3) flagReason = 'short_clip';
+    previewBlob = await generateVideoPoster(file).catch(() => null);
+  }
+
+  // Upload the small preview first so the thumbnail is available immediately.
+  let previewPath: string | null = null;
+  if (previewBlob) {
+    try {
+      const { storagePath } = await uploadMediaFile(weddingId, previewBlob, folder, 'jpg', 'preview');
+      previewPath = storagePath;
+    } catch (err) {
+      console.warn('Preview upload failed (continuing without preview):', err);
     }
   }
 
-  await insertMediaItem({
+  // For photos with no preview (already small), use the original as the preview by uploading it now.
+  // For videos without a poster, we still queue the original; the grid will show a film icon until it lands.
+  let initialPath: string;
+  if (isPhoto && !previewPath) {
+    const { storagePath } = await uploadMediaFile(weddingId, file, folder, getExt(file), 'original');
+    initialPath = storagePath;
+    // Insert as already complete since we have the original.
+    const ext = getExt(file);
+    await insertMediaItem({
+      wedding_id: weddingId,
+      type: 'photo',
+      folder,
+      storage_path: initialPath,
+      preview_storage_path: previewPath,
+      upload_status: 'complete',
+      flag_reason: flagReason,
+      duration,
+    });
+    void ext;
+    return { flagged: Boolean(flagReason) };
+  }
+
+  // Pending path: insert row referencing the preview as a placeholder for storage_path,
+  // then queue the original to overwrite storage_path on completion.
+  const placeholderPath = previewPath || `${weddingId}/${folder}/pending/${crypto.randomUUID()}`;
+  const mediaId = await insertMediaItem({
     wedding_id: weddingId,
     type: isVideo ? 'video' : 'photo',
     folder,
-    storage_path: storagePath,
+    storage_path: placeholderPath,
+    preview_storage_path: previewPath,
+    upload_status: 'pending',
     flag_reason: flagReason,
     duration,
   });
 
+  enqueueUpload({
+    mediaId,
+    weddingId,
+    folder,
+    file,
+    ext: getExt(file),
+  });
+
   return { flagged: Boolean(flagReason) };
+}
+
+function getExt(file: File): string {
+  return file.name.split('.').pop() || 'bin';
 }
 
 function isSupportedMediaFile(file: File) {
@@ -335,10 +357,6 @@ function getVideoDuration(file: File): Promise<number | null> {
 
     window.setTimeout(() => finish(null), VIDEO_METADATA_TIMEOUT_MS);
   });
-}
-
-function delay(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
