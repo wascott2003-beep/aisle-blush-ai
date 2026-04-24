@@ -81,6 +81,18 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
     }
   };
 
+  const handleUploadClick = () => {
+    if (mediaFiles.length === 0) {
+      setErrorMessage('Please choose at least one photo or video to upload.');
+      return;
+    }
+    if (mediaFiles.length > LARGE_BATCH_WARNING_THRESHOLD) {
+      setShowLargeBatchWarning(true);
+      return;
+    }
+    void handleUpload();
+  };
+
   const handleUpload = async () => {
     if (mediaFiles.length === 0) {
       setErrorMessage('Please choose at least one photo or video to upload.');
