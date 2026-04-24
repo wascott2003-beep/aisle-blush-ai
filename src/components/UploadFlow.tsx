@@ -219,7 +219,7 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
             </div>
           )}
           <Button onClick={handleUpload} disabled={mediaFiles.length === 0} className="w-full h-12 gradient-rose text-primary-foreground font-body font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
-            Upload & Sort with AI
+            Upload to Unsorted
           </Button>
         </motion.div>
       )}
