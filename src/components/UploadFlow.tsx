@@ -49,6 +49,7 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
   const [failedCount, setFailedCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [createdWeddingId, setCreatedWeddingId] = useState<string | null>(null);
+  const [showLargeBatchWarning, setShowLargeBatchWarning] = useState(false);
 
   const mediaFiles = useMemo(
     () => files.filter((f) => isSupportedMediaFile(f) && f.size <= MAX_FILE_SIZE_BYTES),
