@@ -40,6 +40,7 @@ export interface MediaItem {
   duration?: number; // seconds, for video
   folder: string;
   flagReason?: 'short_clip' | 'low_quality_photo';
+  uploadStatus?: 'pending' | 'complete' | 'failed';
 }
 
 export type AppView = 'login' | 'dashboard' | 'wedding' | 'upload' | 'review' | 'settings';
