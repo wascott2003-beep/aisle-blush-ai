@@ -126,6 +126,11 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <SortFootageButton
+            weddingId={wedding.id}
+            unsortedCount={wedding.folders.find((f) => f.name === 'Unsorted')?.items.length || 0}
+            onSorted={() => onRefresh?.()}
+          />
           <Button
             onClick={onCreateReel}
             variant="outline"
