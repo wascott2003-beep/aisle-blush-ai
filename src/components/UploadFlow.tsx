@@ -1,13 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Upload, CheckCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { MediaItem } from '@/lib/types';
 import { analyzeImageQuality } from '@/lib/image-quality';
 import { supabase } from '@/integrations/supabase/client';
-import { createWeddingInDb, uploadMediaFile, insertMediaItem } from '@/lib/supabase-helpers';
+import { createWeddingInDb, deleteWeddingById, insertMediaItem, uploadMediaFile } from '@/lib/supabase-helpers';
 
 interface UploadFlowProps {
   onBack: () => void;
@@ -15,6 +14,9 @@ interface UploadFlowProps {
 }
 
 const FOLDER_NAMES = ['Getting Ready', 'Ceremony', 'Portraits', 'Reception', 'Details', 'Miscellaneous'];
+const MAX_PARALLEL_UPLOADS = 3;
+const PER_FILE_TIMEOUT_MS = 60000;
+const RENDER_DELAY_MS = 50;
 
 const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
   const [step, setStep] = useState<'info' | 'upload' | 'uploading' | 'sorting' | 'done'>('info');
@@ -23,81 +25,124 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
   const [files, setFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [flaggedCount, setFlaggedCount] = useState(0);
+  const [failedCount, setFailedCount] = useState(0);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [uploadStatus, setUploadStatus] = useState('Preparing upload...');
+
+  const mediaFiles = useMemo(() => files.filter(isSupportedMediaFile), [files]);
+  const skippedCount = files.length - mediaFiles.length;
+  const previewFiles = useMemo(() => files.slice(0, 10), [files]);
+  const previewUrls = useMemo(
+    () => previewFiles.map((file) => ({ file, url: URL.createObjectURL(file) })),
+    [previewFiles],
+  );
+
+  useEffect(() => {
+    return () => {
+      previewUrls.forEach(({ url }) => URL.revokeObjectURL(url));
+    };
+  }, [previewUrls]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setFiles(Array.from(e.target.files));
+      setErrorMessage(null);
+      setFailedCount(0);
+      setFlaggedCount(0);
     }
   };
 
   const handleUpload = async () => {
+    if (mediaFiles.length === 0) {
+      setErrorMessage('Please choose at least one photo or video to upload.');
+      return;
+    }
+
     setStep('uploading');
     setUploadProgress(0);
+    setUploadStatus('Preparing your files...');
+    setErrorMessage(null);
+    setFailedCount(0);
+    setFlaggedCount(0);
+
+    let weddingId: string | null = null;
+    let successCount = 0;
 
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      await delay(RENDER_DELAY_MS);
 
-      // Create wedding in DB
-      const weddingId = await createWeddingInDb(user.id, name, date);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      // Upload files and create media items
-      const totalFiles = files.length;
-      let uploaded = 0;
+      if (!user) {
+        throw new Error('Not authenticated');
+      }
+
+      weddingId = await createWeddingInDb(user.id, name, date);
+
+      let completed = 0;
       let flagged = 0;
+      let failed = 0;
 
-      for (const file of files) {
-        const isPhoto = file.type.startsWith('image/');
-        const isVideo = file.type.startsWith('video/');
-        if (!isPhoto && !isVideo) { uploaded++; continue; }
+      for (let start = 0; start < mediaFiles.length; start += MAX_PARALLEL_UPLOADS) {
+        const batch = mediaFiles.slice(start, start + MAX_PARALLEL_UPLOADS);
+        const batchStart = start + 1;
+        const batchEnd = Math.min(start + batch.length, mediaFiles.length);
 
-        // Assign to a folder (distribute evenly)
-        const folderIdx = uploaded % FOLDER_NAMES.length;
-        const folder = FOLDER_NAMES[folderIdx];
+        setUploadStatus(`Uploading ${batchStart}-${batchEnd} of ${mediaFiles.length}...`);
 
-        const { storagePath } = await uploadMediaFile(weddingId, file, folder);
+        const results = await Promise.allSettled(
+          batch.map(async (file, batchIndex) => {
+            try {
+              const result = await withTimeout(
+                processMediaFile(weddingId as string, file, start + batchIndex),
+                PER_FILE_TIMEOUT_MS,
+                `Upload timed out for ${file.name}`,
+              );
 
-        // Check quality for photos
-        let flagReason: string | null = null;
-        if (isPhoto) {
-          const result = await analyzeImageQuality(file);
-          if (result) {
-            flagReason = result;
-            flagged++;
+              successCount += 1;
+              if (result.flagged) {
+                flagged += 1;
+              }
+            } finally {
+              completed += 1;
+              setUploadProgress((completed / mediaFiles.length) * 100);
+            }
+          }),
+        );
+
+        results.forEach((result) => {
+          if (result.status === 'rejected') {
+            failed += 1;
+            console.error('File upload failed:', result.reason);
           }
-        }
-
-        // Check for short clips (videos under 3s)
-        let duration: number | null = null;
-        if (isVideo) {
-          duration = await getVideoDuration(file);
-          if (duration !== null && duration < 3) {
-            flagReason = 'short_clip';
-            flagged++;
-          }
-        }
-
-        await insertMediaItem({
-          wedding_id: weddingId,
-          type: isVideo ? 'video' : 'photo',
-          folder,
-          storage_path: storagePath,
-          flag_reason: flagReason,
-          duration,
         });
+      }
 
-        uploaded++;
-        setUploadProgress((uploaded / totalFiles) * 100);
+      if (successCount === 0) {
+        throw new Error('All uploads failed');
       }
 
       setFlaggedCount(flagged);
+      setFailedCount(failed);
+      setUploadProgress(100);
+      setUploadStatus('Finishing up...');
       setStep('sorting');
 
-      // Brief sorting animation
-      setTimeout(() => setStep('done'), 2000);
+      setTimeout(() => setStep('done'), 1500);
     } catch (err) {
       console.error('Upload error:', err);
+
+      if (weddingId && successCount === 0) {
+        try {
+          await deleteWeddingById(weddingId);
+        } catch (cleanupError) {
+          console.error('Failed to clean up empty wedding:', cleanupError);
+        }
+      }
+
+      setErrorMessage('Upload failed. Try a smaller batch, then retry.');
       setStep('upload');
     }
   };
@@ -141,18 +186,26 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
             <input type="file" multiple accept="image/*,video/*" onChange={handleFileChange} className="hidden" />
             <Upload className="w-10 h-10 text-rose-gold/50 mx-auto mb-3" />
             <p className="font-body text-foreground font-medium">
-              {files.length > 0 ? `${files.length} files selected` : 'Drop files or click to browse'}
+              {files.length > 0 ? `${mediaFiles.length} supported file${mediaFiles.length === 1 ? '' : 's'} selected` : 'Drop files or click to browse'}
             </p>
             <p className="text-xs text-muted-foreground font-body mt-1">Photos and videos</p>
+            {skippedCount > 0 && (
+              <p className="text-xs text-muted-foreground font-body mt-1">{skippedCount} unsupported file{skippedCount === 1 ? '' : 's'} will be skipped</p>
+            )}
           </label>
+          {errorMessage && (
+            <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm font-body text-foreground">
+              {errorMessage}
+            </div>
+          )}
           {files.length > 0 && (
             <div className="grid grid-cols-5 gap-1.5">
-              {files.slice(0, 10).map((file, i) => (
-                <div key={i} className="aspect-square rounded-lg overflow-hidden bg-accent border border-border">
+              {previewUrls.map(({ file, url }, i) => (
+                <div key={`${file.name}-${i}`} className="aspect-square rounded-lg overflow-hidden bg-accent border border-border">
                   {file.type.startsWith('image/') ? (
-                    <img src={URL.createObjectURL(file)} alt="" className="w-full h-full object-cover" />
+                    <img src={url} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <video src={URL.createObjectURL(file)} className="w-full h-full object-cover" />
+                    <video src={url} className="w-full h-full object-cover" />
                   )}
                 </div>
               ))}
@@ -163,7 +216,7 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
               )}
             </div>
           )}
-          <Button onClick={handleUpload} disabled={files.length === 0} className="w-full h-12 gradient-rose text-primary-foreground font-body font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
+          <Button onClick={handleUpload} disabled={mediaFiles.length === 0} className="w-full h-12 gradient-rose text-primary-foreground font-body font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
             Upload & Sort with AI
           </Button>
         </motion.div>
@@ -173,7 +226,8 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20 space-y-6">
           <Upload className="w-12 h-12 text-rose-gold mx-auto animate-pulse" />
           <div>
-            <h2 className="font-heading text-2xl text-foreground mb-2">Uploading {files.length} files...</h2>
+            <h2 className="font-heading text-2xl text-foreground mb-2">Uploading {mediaFiles.length} files...</h2>
+            <p className="text-muted-foreground font-body text-sm">{uploadStatus}</p>
             <p className="text-muted-foreground font-body text-sm mb-4">{Math.min(Math.round(uploadProgress), 100)}%</p>
             <div className="max-w-sm mx-auto">
               <Progress value={Math.min(uploadProgress, 100)} className="h-2 bg-accent [&>div]:bg-rose-gold" />
@@ -188,7 +242,7 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
             <span className="text-primary-foreground text-2xl">✨</span>
           </motion.div>
           <h2 className="font-heading text-2xl text-foreground">AI is sorting your media...</h2>
-          <p className="text-muted-foreground font-body">Organizing {files.length} files and checking quality</p>
+          <p className="text-muted-foreground font-body">Organizing {mediaFiles.length} files and checking quality</p>
         </motion.div>
       )}
 
@@ -197,8 +251,9 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
           <CheckCircle className="w-16 h-16 text-rose-gold mx-auto" />
           <h2 className="font-heading text-2xl text-foreground">All sorted!</h2>
           <p className="text-muted-foreground font-body">
-            {files.length} files organized into 6 folders
+            {Math.max(mediaFiles.length - failedCount, 0)} files organized into 6 folders
             {flaggedCount > 0 && ` · ${flaggedCount} item${flaggedCount > 1 ? 's' : ''} flagged for review`}
+            {failedCount > 0 && ` · ${failedCount} failed`}
           </p>
           <Button onClick={onComplete} className="gradient-rose text-primary-foreground font-body font-medium hover:opacity-90">
             View Wedding
@@ -209,17 +264,72 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
   );
 };
 
+async function processMediaFile(weddingId: string, file: File, fileIndex: number): Promise<{ flagged: boolean }> {
+  const isPhoto = file.type.startsWith('image/');
+  const isVideo = file.type.startsWith('video/');
+  const folder = FOLDER_NAMES[fileIndex % FOLDER_NAMES.length];
+
+  const { storagePath } = await uploadMediaFile(weddingId, file, folder);
+
+  let flagReason: string | null = null;
+  let duration: number | null = null;
+
+  if (isPhoto) {
+    flagReason = await analyzeImageQuality(file);
+  }
+
+  if (isVideo) {
+    duration = await getVideoDuration(file);
+    if (duration !== null && duration < 3) {
+      flagReason = 'short_clip';
+    }
+  }
+
+  await insertMediaItem({
+    wedding_id: weddingId,
+    type: isVideo ? 'video' : 'photo',
+    folder,
+    storage_path: storagePath,
+    flag_reason: flagReason,
+    duration,
+  });
+
+  return { flagged: Boolean(flagReason) };
+}
+
+function isSupportedMediaFile(file: File) {
+  return file.type.startsWith('image/') || file.type.startsWith('video/');
+}
+
 function getVideoDuration(file: File): Promise<number | null> {
   return new Promise((resolve) => {
     const video = document.createElement('video');
+    const objectUrl = URL.createObjectURL(file);
+
     video.preload = 'metadata';
     video.onloadedmetadata = () => {
-      URL.revokeObjectURL(video.src);
+      URL.revokeObjectURL(objectUrl);
       resolve(video.duration);
     };
-    video.onerror = () => resolve(null);
-    video.src = URL.createObjectURL(file);
+    video.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(null);
+    };
+    video.src = objectUrl;
   });
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    }),
+  ]);
 }
 
 export default UploadFlow;
