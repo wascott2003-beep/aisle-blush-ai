@@ -35,6 +35,8 @@ const UNSORTED_FOLDER = 'Unsorted';
 const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024;
 const VIDEO_METADATA_TIMEOUT_MS = 8000;
 const PER_PREVIEW_TIMEOUT_MS = 30 * 1000;
+// Soft limit — warn users when uploading exceptionally large batches.
+const LARGE_BATCH_WARNING_THRESHOLD = 200;
 
 const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
   const [step, setStep] = useState<'info' | 'upload' | 'preparing' | 'done'>('info');
