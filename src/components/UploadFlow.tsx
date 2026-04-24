@@ -243,11 +243,34 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
               )}
             </div>
           )}
-          <Button onClick={handleUpload} disabled={mediaFiles.length === 0} className="w-full h-12 gradient-rose text-primary-foreground font-body font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
+          <Button onClick={handleUploadClick} disabled={mediaFiles.length === 0} className="w-full h-12 gradient-rose text-primary-foreground font-body font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
             Upload to Unsorted
           </Button>
         </motion.div>
       )}
+
+      <AlertDialog open={showLargeBatchWarning} onOpenChange={setShowLargeBatchWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-heading">Large upload detected</AlertDialogTitle>
+            <AlertDialogDescription className="font-body">
+              You've selected {mediaFiles.length} files. For best results, upload in batches of {LARGE_BATCH_WARNING_THRESHOLD} files or less. Large weddings can be split across multiple uploads.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="font-body">Go back & reduce</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowLargeBatchWarning(false);
+                void handleUpload();
+              }}
+              className="gradient-rose text-primary-foreground font-body"
+            >
+              Continue anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {step === 'preparing' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20 space-y-6">
