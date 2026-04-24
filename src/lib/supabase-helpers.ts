@@ -36,6 +36,11 @@ export async function createWeddingInDb(userId: string, name: string, date: stri
   return data.id;
 }
 
+export async function deleteWeddingById(id: string) {
+  const { error } = await supabase.from('weddings').delete().eq('id', id);
+  if (error) throw error;
+}
+
 export async function insertMediaItem(item: {
   wedding_id: string;
   type: string;
