@@ -95,24 +95,35 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
       weddingId = await createWeddingInDb(user.id, name, date);
       setCreatedWeddingId(weddingId);
 
-      // Process each file: generate small preview, upload preview, insert pending row, enqueue original.
-      for (let i = 0; i < mediaFiles.length; i++) {
-        const file = mediaFiles[i];
-        setPrepStatus(`Preparing ${i + 1} of ${mediaFiles.length}: ${file.name}`);
-        try {
-          const result = await withTimeout(
-            prepareAndQueue(weddingId, file, i),
-            PER_PREVIEW_TIMEOUT_MS,
-            `Preview generation timed out for ${file.name}`,
-          );
-          if (result.flagged) flagged += 1;
-        } catch (err) {
-          console.error('Failed to prepare file:', file.name, err);
-          failed += 1;
-        } finally {
+      // Process files in sequential batches of 5. Each batch fully completes
+      // before the next starts. Failures within a batch are isolated so one bad
+      // file never freezes the whole upload.
+      const BATCH_SIZE = 5;
+      for (let batchStart = 0; batchStart < mediaFiles.length; batchStart += BATCH_SIZE) {
+        const batch = mediaFiles.slice(batchStart, batchStart + BATCH_SIZE);
+        setPrepStatus(`Uploading ${batchStart + 1}–${Math.min(batchStart + batch.length, mediaFiles.length)} of ${mediaFiles.length} files`);
+
+        const results = await Promise.allSettled(
+          batch.map((file, idx) =>
+            withTimeout(
+              prepareAndQueue(weddingId, file, batchStart + idx),
+              PER_PREVIEW_TIMEOUT_MS,
+              `Preview generation timed out for ${file.name}`,
+            ),
+          ),
+        );
+
+        results.forEach((res, idx) => {
+          if (res.status === 'fulfilled') {
+            if (res.value.flagged) flagged += 1;
+          } else {
+            console.error('Failed to prepare file:', batch[idx].name, res.reason);
+            failed += 1;
+          }
           prepared += 1;
-          setPrepProgress((prepared / mediaFiles.length) * 100);
-        }
+        });
+        setPrepProgress((prepared / mediaFiles.length) * 100);
+        setPrepStatus(`Uploading ${Math.min(prepared, mediaFiles.length)} of ${mediaFiles.length} files`);
       }
 
       if (prepared - failed === 0) throw new Error('All files failed to prepare');
