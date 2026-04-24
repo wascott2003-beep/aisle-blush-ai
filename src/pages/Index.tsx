@@ -10,7 +10,8 @@ import AccountSettings from '@/components/AccountSettings';
 import WeddingLibrary from '@/components/WeddingLibrary';
 import { Wedding, Vendor } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchWeddings, deleteMediaItem, saveVendor, deleteVendor } from '@/lib/supabase-helpers';
+import { fetchWeddings, deleteMediaItem, saveVendor, deleteVendor, fetchPendingMediaForWedding } from '@/lib/supabase-helpers';
+import { hydratePendingCount } from '@/lib/upload-queue';
 
 type Page = 'dashboard' | 'library' | 'settings';
 
