@@ -3,6 +3,8 @@ import { Wedding, MediaItem, Vendor } from '@/lib/types';
 
 const FOLDER_NAMES = ['Getting Ready', 'Ceremony', 'Portraits', 'Reception', 'Details', 'Miscellaneous'];
 const FOLDER_ICONS = ['Sparkles', 'Heart', 'Camera', 'PartyPopper', 'Gem', 'FolderOpen'];
+const UNSORTED_FOLDER = 'Unsorted';
+const UNSORTED_ICON = 'Inbox';
 
 export function getPublicUrl(path: string): string {
   const { data } = supabase.storage.from('wedding-media').getPublicUrl(path);
@@ -123,6 +125,12 @@ export async function fetchWeddings(userId: string): Promise<Wedding[]> {
       icon: FOLDER_ICONS[i],
       items: items.filter((it) => it.folder === fn),
     }));
+
+    // Show "Unsorted" first, but only when it actually has items.
+    const unsortedItems = items.filter((it) => it.folder === UNSORTED_FOLDER);
+    if (unsortedItems.length > 0) {
+      folders.unshift({ name: UNSORTED_FOLDER, icon: UNSORTED_ICON, items: unsortedItems });
+    }
 
     const flaggedItems = items.filter((it) => it.flagReason);
     const shortClips = items.filter((it) => it.flagReason === 'short_clip');
