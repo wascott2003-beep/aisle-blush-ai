@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Wedding, MediaFolder, MediaItem, Vendor } from '@/lib/types';
 import MediaViewer from '@/components/MediaViewer';
 import VendorSection from '@/components/VendorSection';
+import BackgroundUploadIndicator from '@/components/BackgroundUploadIndicator';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Sparkles, Heart, Camera, PartyPopper, Gem, FolderOpen,
@@ -113,7 +114,10 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
 
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-heading font-semibold text-foreground">{wedding.name}</h1>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-3xl font-heading font-semibold text-foreground">{wedding.name}</h1>
+            <BackgroundUploadIndicator weddingId={wedding.id} />
+          </div>
           <p className="text-muted-foreground font-body mt-1">
             {new Date(wedding.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
             {' · '}{wedding.mediaCount} files

@@ -11,18 +11,16 @@ export function getPublicUrl(path: string): string {
 
 export async function uploadMediaFile(
   weddingId: string,
-  file: File,
+  file: File | Blob,
   folder: string,
-  onProgress?: (pct: number) => void,
+  ext: string,
+  subdir: 'original' | 'preview' = 'original',
 ): Promise<{ storagePath: string; publicUrl: string }> {
-  const ext = file.name.split('.').pop() || 'bin';
-  const storagePath = `${weddingId}/${folder}/${crypto.randomUUID()}.${ext}`;
-
+  const storagePath = `${weddingId}/${folder}/${subdir}/${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage
     .from('wedding-media')
-    .upload(storagePath, file, { upsert: false });
+    .upload(storagePath, file, { upsert: false, contentType: (file as File).type || undefined });
   if (error) throw error;
-
   return { storagePath, publicUrl: getPublicUrl(storagePath) };
 }
 
@@ -46,16 +44,41 @@ export async function insertMediaItem(item: {
   type: string;
   folder: string;
   storage_path: string;
+  preview_storage_path?: string | null;
+  upload_status?: 'pending' | 'complete';
   flag_reason?: string | null;
   duration?: number | null;
-}) {
-  const { error } = await supabase.from('media_items').insert(item);
+}): Promise<string> {
+  const { data, error } = await supabase
+    .from('media_items')
+    .insert(item)
+    .select('id')
+    .single();
+  if (error) throw error;
+  return data.id;
+}
+
+export async function updateMediaItemStatus(
+  id: string,
+  patch: { storage_path?: string; upload_status?: 'pending' | 'complete' | 'failed' },
+) {
+  const { error } = await supabase.from('media_items').update(patch).eq('id', id);
   if (error) throw error;
 }
 
 export async function deleteMediaItem(id: string) {
   const { error } = await supabase.from('media_items').delete().eq('id', id);
   if (error) throw error;
+}
+
+export async function fetchPendingMediaForWedding(weddingId: string) {
+  const { data, error } = await supabase
+    .from('media_items')
+    .select('id, storage_path, preview_storage_path')
+    .eq('wedding_id', weddingId)
+    .eq('upload_status', 'pending');
+  if (error) throw error;
+  return data || [];
 }
 
 export async function fetchWeddings(userId: string): Promise<Wedding[]> {
@@ -79,15 +102,21 @@ export async function fetchWeddings(userId: string): Promise<Wedding[]> {
       .select('*')
       .eq('wedding_id', w.id);
 
-    const items: MediaItem[] = (media || []).map((m) => ({
-      id: m.id,
-      type: m.type as 'photo' | 'video',
-      url: getPublicUrl(m.storage_path),
-      thumbnail: getPublicUrl(m.storage_path),
-      folder: m.folder,
-      duration: m.duration ?? undefined,
-      flagReason: m.flag_reason as MediaItem['flagReason'],
-    }));
+    const items: MediaItem[] = (media || []).map((m) => {
+      const previewPath = (m as { preview_storage_path?: string | null }).preview_storage_path;
+      const status = (m as { upload_status?: string }).upload_status as MediaItem['uploadStatus'] | undefined;
+      const thumbPath = previewPath || m.storage_path;
+      return {
+        id: m.id,
+        type: m.type as 'photo' | 'video',
+        url: getPublicUrl(m.storage_path),
+        thumbnail: getPublicUrl(thumbPath),
+        folder: m.folder,
+        duration: m.duration ?? undefined,
+        flagReason: m.flag_reason as MediaItem['flagReason'],
+        uploadStatus: status || 'complete',
+      };
+    });
 
     const folders = FOLDER_NAMES.map((fn, i) => ({
       name: fn,
@@ -106,7 +135,6 @@ export async function fetchWeddings(userId: string): Promise<Wedding[]> {
       website: v.website ?? undefined,
     }));
 
-    // Use first photo as thumbnail
     const firstPhoto = items.find((it) => it.type === 'photo');
 
     result.push({

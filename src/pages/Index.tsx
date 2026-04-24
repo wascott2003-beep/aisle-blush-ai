@@ -10,7 +10,8 @@ import AccountSettings from '@/components/AccountSettings';
 import WeddingLibrary from '@/components/WeddingLibrary';
 import { Wedding, Vendor } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchWeddings, deleteMediaItem, saveVendor, deleteVendor } from '@/lib/supabase-helpers';
+import { fetchWeddings, deleteMediaItem, saveVendor, deleteVendor, fetchPendingMediaForWedding } from '@/lib/supabase-helpers';
+import { hydratePendingCount } from '@/lib/upload-queue';
 
 type Page = 'dashboard' | 'library' | 'settings';
 
@@ -52,6 +53,16 @@ const Index = () => {
     try {
       const data = await fetchWeddings(userId);
       setWeddings(data);
+      // Hydrate pending counts so the background-upload indicator reflects
+      // any originals still pending from a previous session.
+      for (const w of data) {
+        try {
+          const pending = await fetchPendingMediaForWedding(w.id);
+          if (pending.length > 0) hydratePendingCount(w.id, pending.length);
+        } catch (e) {
+          console.warn('Failed to hydrate pending uploads for', w.id, e);
+        }
+      }
     } catch (err) {
       console.error('Failed to load weddings:', err);
     }
@@ -88,8 +99,9 @@ const Index = () => {
         <AppNav currentPage={page} onNavigate={(p) => { setPage(p); setShowUpload(false); }} onLogout={handleLogout} />
         <UploadFlow
           onBack={() => setShowUpload(false)}
-          onComplete={async () => {
+          onComplete={async (weddingId) => {
             await loadWeddings();
+            if (weddingId) setSelectedWeddingId(weddingId);
             setShowUpload(false);
           }}
         />

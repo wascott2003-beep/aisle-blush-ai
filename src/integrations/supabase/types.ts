@@ -21,8 +21,10 @@ export type Database = {
           flag_reason: string | null
           folder: string
           id: string
+          preview_storage_path: string | null
           storage_path: string
           type: string
+          upload_status: string
           wedding_id: string
         }
         Insert: {
@@ -31,8 +33,10 @@ export type Database = {
           flag_reason?: string | null
           folder: string
           id?: string
+          preview_storage_path?: string | null
           storage_path: string
           type: string
+          upload_status?: string
           wedding_id: string
         }
         Update: {
@@ -41,8 +45,10 @@ export type Database = {
           flag_reason?: string | null
           folder?: string
           id?: string
+          preview_storage_path?: string | null
           storage_path?: string
           type?: string
+          upload_status?: string
           wedding_id?: string
         }
         Relationships: [
