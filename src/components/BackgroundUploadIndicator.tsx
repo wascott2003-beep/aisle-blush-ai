@@ -9,13 +9,16 @@ interface BackgroundUploadIndicatorProps {
 
 const BackgroundUploadIndicator = ({ weddingId }: BackgroundUploadIndicatorProps) => {
   const [pending, setPending] = useState(0);
+  const [completed, setCompleted] = useState(0);
+  const [total, setTotal] = useState(0);
   const [showDone, setShowDone] = useState(false);
   const [prevPending, setPrevPending] = useState(0);
 
   useEffect(() => {
     return subscribeUploadQueue((s) => {
-      const count = s.pendingByWedding[weddingId] || 0;
-      setPending(count);
+      setPending(s.pendingByWedding[weddingId] || 0);
+      setCompleted(s.completed);
+      setTotal(s.total);
     });
   }, [weddingId]);
 
@@ -28,6 +31,12 @@ const BackgroundUploadIndicator = ({ weddingId }: BackgroundUploadIndicatorProps
     setPrevPending(pending);
   }, [pending, prevPending]);
 
+  // Prefer "X of Y" when we know the batch size, otherwise fall back to count.
+  const progressLabel =
+    total > 0
+      ? `Uploading ${Math.min(completed + 1, total)} of ${total} files`
+      : `Saving ${pending} file${pending === 1 ? '' : 's'} at full quality…`;
+
   return (
     <AnimatePresence>
       {pending > 0 && (
@@ -39,7 +48,7 @@ const BackgroundUploadIndicator = ({ weddingId }: BackgroundUploadIndicatorProps
           className="flex items-center gap-2 rounded-full bg-card border border-border px-3 py-1.5 text-xs font-body text-muted-foreground"
         >
           <CloudUpload className="w-3.5 h-3.5 text-rose-gold animate-pulse" />
-          <span>Saving {pending} file{pending === 1 ? '' : 's'} at full quality…</span>
+          <span>{progressLabel}</span>
         </motion.div>
       )}
       {showDone && pending === 0 && (
