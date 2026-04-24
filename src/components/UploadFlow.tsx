@@ -203,6 +203,9 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
             {skippedCount > 0 && (
               <p className="text-xs text-muted-foreground font-body mt-1">{skippedCount} unsupported file{skippedCount === 1 ? '' : 's'} will be skipped</p>
             )}
+            {oversizeCount > 0 && (
+              <p className="text-xs text-rose-gold font-body mt-1">{oversizeCount} file{oversizeCount === 1 ? '' : 's'} over 500MB will be skipped</p>
+            )}
           </label>
           {errorMessage && (
             <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm font-body text-foreground">
