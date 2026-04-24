@@ -53,6 +53,16 @@ const Index = () => {
     try {
       const data = await fetchWeddings(userId);
       setWeddings(data);
+      // Hydrate pending counts so the background-upload indicator reflects
+      // any originals still pending from a previous session.
+      for (const w of data) {
+        try {
+          const pending = await fetchPendingMediaForWedding(w.id);
+          if (pending.length > 0) hydratePendingCount(w.id, pending.length);
+        } catch (e) {
+          console.warn('Failed to hydrate pending uploads for', w.id, e);
+        }
+      }
     } catch (err) {
       console.error('Failed to load weddings:', err);
     }
