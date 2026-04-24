@@ -101,10 +101,17 @@ const ReviewClips = ({ clips, weddingName, onBack, onComplete }: ReviewClipsProp
             )}
           </div>
 
-          {/* Media preview */}
-          <div className="w-full aspect-video rounded-xl bg-accent flex items-center justify-center mb-5 overflow-hidden">
-            {currentClip.type === 'photo' && currentClip.thumbnail && currentClip.thumbnail !== '/placeholder.svg' ? (
-              <img src={currentClip.thumbnail} alt="" className="w-full h-full object-contain" />
+          {/* Media preview — uses the poster frame for videos and the preview JPEG for photos. */}
+          <div className="relative w-full aspect-video rounded-xl bg-accent flex items-center justify-center mb-5 overflow-hidden">
+            {currentClip.thumbnail && currentClip.thumbnail !== '/placeholder.svg' ? (
+              <>
+                <img src={currentClip.thumbnail} alt="" className="w-full h-full object-contain" />
+                {currentClip.type === 'video' && (
+                  <div className="absolute bottom-2 right-2 bg-background/80 backdrop-blur-sm rounded-full p-1.5">
+                    <Video className="w-3.5 h-3.5 text-foreground" />
+                  </div>
+                )}
+              </>
             ) : currentClip.type === 'video' ? (
               <Video className="w-12 h-12 text-muted-foreground/30" />
             ) : (
