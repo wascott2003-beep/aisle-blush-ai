@@ -14,8 +14,12 @@ interface UploadFlowProps {
 }
 
 const FOLDER_NAMES = ['Getting Ready', 'Ceremony', 'Portraits', 'Reception', 'Details', 'Miscellaneous'];
-const MAX_PARALLEL_UPLOADS = 3;
-const PER_FILE_TIMEOUT_MS = 60000;
+const MAX_PARALLEL_UPLOADS = 2;
+// Allow up to 10 minutes per file so very large videos on slow connections still finish
+const PER_FILE_TIMEOUT_MS = 10 * 60 * 1000;
+// Cap individual file size at 500MB (Supabase storage default upper limit)
+const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024;
+const VIDEO_METADATA_TIMEOUT_MS = 8000;
 const RENDER_DELAY_MS = 50;
 
 const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
@@ -29,8 +33,15 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState('Preparing upload...');
 
-  const mediaFiles = useMemo(() => files.filter(isSupportedMediaFile), [files]);
-  const skippedCount = files.length - mediaFiles.length;
+  const mediaFiles = useMemo(
+    () => files.filter((f) => isSupportedMediaFile(f) && f.size <= MAX_FILE_SIZE_BYTES),
+    [files],
+  );
+  const oversizeCount = useMemo(
+    () => files.filter((f) => isSupportedMediaFile(f) && f.size > MAX_FILE_SIZE_BYTES).length,
+    [files],
+  );
+  const skippedCount = files.length - mediaFiles.length - oversizeCount;
   const previewFiles = useMemo(() => files.slice(0, 10), [files]);
   const previewUrls = useMemo(
     () => previewFiles.map((file) => ({ file, url: URL.createObjectURL(file) })),
@@ -192,6 +203,9 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
             {skippedCount > 0 && (
               <p className="text-xs text-muted-foreground font-body mt-1">{skippedCount} unsupported file{skippedCount === 1 ? '' : 's'} will be skipped</p>
             )}
+            {oversizeCount > 0 && (
+              <p className="text-xs text-rose-gold font-body mt-1">{oversizeCount} file{oversizeCount === 1 ? '' : 's'} over 500MB will be skipped</p>
+            )}
           </label>
           {errorMessage && (
             <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm font-body text-foreground">
@@ -305,17 +319,21 @@ function getVideoDuration(file: File): Promise<number | null> {
   return new Promise((resolve) => {
     const video = document.createElement('video');
     const objectUrl = URL.createObjectURL(file);
+    let settled = false;
+
+    const finish = (value: number | null) => {
+      if (settled) return;
+      settled = true;
+      URL.revokeObjectURL(objectUrl);
+      resolve(value);
+    };
 
     video.preload = 'metadata';
-    video.onloadedmetadata = () => {
-      URL.revokeObjectURL(objectUrl);
-      resolve(video.duration);
-    };
-    video.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      resolve(null);
-    };
+    video.onloadedmetadata = () => finish(Number.isFinite(video.duration) ? video.duration : null);
+    video.onerror = () => finish(null);
     video.src = objectUrl;
+
+    window.setTimeout(() => finish(null), VIDEO_METADATA_TIMEOUT_MS);
   });
 }
 
