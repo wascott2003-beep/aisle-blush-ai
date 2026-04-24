@@ -99,8 +99,9 @@ const Index = () => {
         <AppNav currentPage={page} onNavigate={(p) => { setPage(p); setShowUpload(false); }} onLogout={handleLogout} />
         <UploadFlow
           onBack={() => setShowUpload(false)}
-          onComplete={async () => {
+          onComplete={async (weddingId) => {
             await loadWeddings();
+            if (weddingId) setSelectedWeddingId(weddingId);
             setShowUpload(false);
           }}
         />
