@@ -14,8 +14,12 @@ interface UploadFlowProps {
 }
 
 const FOLDER_NAMES = ['Getting Ready', 'Ceremony', 'Portraits', 'Reception', 'Details', 'Miscellaneous'];
-const MAX_PARALLEL_UPLOADS = 3;
-const PER_FILE_TIMEOUT_MS = 60000;
+const MAX_PARALLEL_UPLOADS = 2;
+// Allow up to 10 minutes per file so very large videos on slow connections still finish
+const PER_FILE_TIMEOUT_MS = 10 * 60 * 1000;
+// Cap individual file size at 500MB (Supabase storage default upper limit)
+const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024;
+const VIDEO_METADATA_TIMEOUT_MS = 8000;
 const RENDER_DELAY_MS = 50;
 
 const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
