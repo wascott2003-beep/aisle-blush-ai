@@ -82,44 +82,55 @@ export function enqueueUpload(job: QueueJob) {
   void runLoop();
 }
 
+const BATCH_SIZE = 5;
+
+async function processJob(job: QueueJob) {
+  state.currentName = job.file.name;
+  emit();
+  try {
+    const { storagePath } = await uploadMediaFile(
+      job.weddingId,
+      job.file,
+      job.folder,
+      job.ext,
+      'original',
+    );
+    await updateMediaItemStatus(job.mediaId, {
+      storage_path: storagePath,
+      upload_status: 'complete',
+    });
+    state.completed += 1;
+  } catch (err) {
+    // Isolated failure — log, mark row as failed, and keep going.
+    console.error('Background upload failed:', job.file.name, err);
+    state.failed += 1;
+    try {
+      await updateMediaItemStatus(job.mediaId, { upload_status: 'failed' });
+    } catch {
+      /* noop */
+    }
+  } finally {
+    bumpWedding(job.weddingId, -1);
+    emit();
+  }
+}
+
 async function runLoop() {
   if (running) return;
   running = true;
   state.status = 'uploading';
   emit();
 
+  // Sequential batches of 5: each batch fully completes (Promise.allSettled
+  // so a single failure can't freeze the whole queue) before the next starts.
   while (queue.length > 0) {
-    const job = queue.shift()!;
-    state.currentName = job.file.name;
+    const batch = queue.splice(0, BATCH_SIZE);
+    state.currentName = `${batch.length} files`;
     state.currentProgress = 0;
     emit();
-
-    try {
-      const { storagePath } = await uploadMediaFile(
-        job.weddingId,
-        job.file,
-        job.folder,
-        job.ext,
-        'original',
-      );
-      await updateMediaItemStatus(job.mediaId, {
-        storage_path: storagePath,
-        upload_status: 'complete',
-      });
-      state.completed += 1;
-    } catch (err) {
-      console.error('Background upload failed:', job.file.name, err);
-      state.failed += 1;
-      try {
-        await updateMediaItemStatus(job.mediaId, { upload_status: 'failed' });
-      } catch {
-        /* noop */
-      }
-    } finally {
-      bumpWedding(job.weddingId, -1);
-      state.currentProgress = 1;
-      emit();
-    }
+    await Promise.allSettled(batch.map(processJob));
+    state.currentProgress = 1;
+    emit();
   }
 
   state.status = 'idle';
