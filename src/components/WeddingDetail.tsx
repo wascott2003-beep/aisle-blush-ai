@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Wedding, MediaFolder, MediaItem, Vendor } from '@/lib/types';
 import MediaViewer from '@/components/MediaViewer';
 import VendorSection from '@/components/VendorSection';
+import BackgroundUploadIndicator from '@/components/BackgroundUploadIndicator';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Sparkles, Heart, Camera, PartyPopper, Gem, FolderOpen,
