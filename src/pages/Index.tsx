@@ -148,6 +148,7 @@ const Index = () => {
           onBack={() => setSelectedWeddingId(null)}
           onReview={() => setShowReview(true)}
           onCreateReel={() => setShowReel(true)}
+          onRefresh={loadWeddings}
           onDeleteItem={async (folderName, itemId) => {
             await deleteMediaItem(itemId);
             await loadWeddings();

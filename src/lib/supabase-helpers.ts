@@ -3,6 +3,8 @@ import { Wedding, MediaItem, Vendor } from '@/lib/types';
 
 const FOLDER_NAMES = ['Getting Ready', 'Ceremony', 'Portraits', 'Reception', 'Details', 'Miscellaneous'];
 const FOLDER_ICONS = ['Sparkles', 'Heart', 'Camera', 'PartyPopper', 'Gem', 'FolderOpen'];
+const UNSORTED_FOLDER = 'Unsorted';
+const UNSORTED_ICON = 'Inbox';
 
 export function getPublicUrl(path: string): string {
   const { data } = supabase.storage.from('wedding-media').getPublicUrl(path);
@@ -124,6 +126,12 @@ export async function fetchWeddings(userId: string): Promise<Wedding[]> {
       items: items.filter((it) => it.folder === fn),
     }));
 
+    // Show "Unsorted" first, but only when it actually has items.
+    const unsortedItems = items.filter((it) => it.folder === UNSORTED_FOLDER);
+    if (unsortedItems.length > 0) {
+      folders.unshift({ name: UNSORTED_FOLDER, icon: UNSORTED_ICON, items: unsortedItems });
+    }
+
     const flaggedItems = items.filter((it) => it.flagReason);
     const shortClips = items.filter((it) => it.flagReason === 'short_clip');
 
@@ -167,5 +175,28 @@ export async function saveVendor(weddingId: string, vendor: Vendor) {
 
 export async function deleteVendor(vendorId: string) {
   const { error } = await supabase.from('vendors').delete().eq('id', vendorId);
+  if (error) throw error;
+}
+
+export async function fetchUnsortedItems(weddingId: string) {
+  const { data, error } = await supabase
+    .from('media_items')
+    .select('id, type, storage_path, preview_storage_path')
+    .eq('wedding_id', weddingId)
+    .eq('folder', 'Unsorted');
+  if (error) throw error;
+  return (data || []).map((m) => {
+    const previewPath = (m as { preview_storage_path?: string | null }).preview_storage_path;
+    const thumbPath = previewPath || m.storage_path;
+    return {
+      id: m.id,
+      type: m.type as 'photo' | 'video',
+      thumbnailUrl: getPublicUrl(thumbPath),
+    };
+  });
+}
+
+export async function updateMediaItemFolder(id: string, folder: string) {
+  const { error } = await supabase.from('media_items').update({ folder }).eq('id', id);
   if (error) throw error;
 }
