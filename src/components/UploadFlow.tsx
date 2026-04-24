@@ -33,8 +33,15 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState('Preparing upload...');
 
-  const mediaFiles = useMemo(() => files.filter(isSupportedMediaFile), [files]);
-  const skippedCount = files.length - mediaFiles.length;
+  const mediaFiles = useMemo(
+    () => files.filter((f) => isSupportedMediaFile(f) && f.size <= MAX_FILE_SIZE_BYTES),
+    [files],
+  );
+  const oversizeCount = useMemo(
+    () => files.filter((f) => isSupportedMediaFile(f) && f.size > MAX_FILE_SIZE_BYTES).length,
+    [files],
+  );
+  const skippedCount = files.length - mediaFiles.length - oversizeCount;
   const previewFiles = useMemo(() => files.slice(0, 10), [files]);
   const previewUrls = useMemo(
     () => previewFiles.map((file) => ({ file, url: URL.createObjectURL(file) })),
