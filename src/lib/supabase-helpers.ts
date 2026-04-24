@@ -177,3 +177,26 @@ export async function deleteVendor(vendorId: string) {
   const { error } = await supabase.from('vendors').delete().eq('id', vendorId);
   if (error) throw error;
 }
+
+export async function fetchUnsortedItems(weddingId: string) {
+  const { data, error } = await supabase
+    .from('media_items')
+    .select('id, type, storage_path, preview_storage_path')
+    .eq('wedding_id', weddingId)
+    .eq('folder', 'Unsorted');
+  if (error) throw error;
+  return (data || []).map((m) => {
+    const previewPath = (m as { preview_storage_path?: string | null }).preview_storage_path;
+    const thumbPath = previewPath || m.storage_path;
+    return {
+      id: m.id,
+      type: m.type as 'photo' | 'video',
+      thumbnailUrl: getPublicUrl(thumbPath),
+    };
+  });
+}
+
+export async function updateMediaItemFolder(id: string, folder: string) {
+  const { error } = await supabase.from('media_items').update({ folder }).eq('id', id);
+  if (error) throw error;
+}
