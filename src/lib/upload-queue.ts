@@ -63,6 +63,17 @@ export function getPendingCountForWedding(weddingId: string): number {
   return state.pendingByWedding[weddingId] || 0;
 }
 
+// Seed pending counts from the database (e.g. on app open) without enqueuing
+// actual file uploads. This makes the indicator reflect originals that were
+// still pending from a previous session.
+export function hydratePendingCount(weddingId: string, count: number) {
+  const current = state.pendingByWedding[weddingId] || 0;
+  if (count > current) {
+    state.pendingByWedding[weddingId] = count;
+    emit();
+  }
+}
+
 export function enqueueUpload(job: QueueJob) {
   queue.push(job);
   state.total += 1;
