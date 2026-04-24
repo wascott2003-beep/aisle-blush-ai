@@ -20,7 +20,7 @@ interface UploadFlowProps {
   onComplete: (weddingId?: string) => void;
 }
 
-const FOLDER_NAMES = ['Getting Ready', 'Ceremony', 'Portraits', 'Reception', 'Details', 'Miscellaneous'];
+const UNSORTED_FOLDER = 'Unsorted';
 // Cap individual file size at 500MB (Supabase storage default upper limit)
 const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024;
 const VIDEO_METADATA_TIMEOUT_MS = 8000;
@@ -262,10 +262,12 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
   );
 };
 
-async function prepareAndQueue(weddingId: string, file: File, fileIndex: number): Promise<{ flagged: boolean }> {
+async function prepareAndQueue(weddingId: string, file: File, _fileIndex: number): Promise<{ flagged: boolean }> {
   const isPhoto = file.type.startsWith('image/');
   const isVideo = file.type.startsWith('video/');
-  const folder = FOLDER_NAMES[fileIndex % FOLDER_NAMES.length];
+  // All new uploads land in "Unsorted". The user triggers categorization
+  // intentionally via the "Sort My Footage" button on the wedding page.
+  const folder = UNSORTED_FOLDER;
 
   let flagReason: string | null = null;
   let duration: number | null = null;
