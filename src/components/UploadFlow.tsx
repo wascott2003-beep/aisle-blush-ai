@@ -319,17 +319,21 @@ function getVideoDuration(file: File): Promise<number | null> {
   return new Promise((resolve) => {
     const video = document.createElement('video');
     const objectUrl = URL.createObjectURL(file);
+    let settled = false;
+
+    const finish = (value: number | null) => {
+      if (settled) return;
+      settled = true;
+      URL.revokeObjectURL(objectUrl);
+      resolve(value);
+    };
 
     video.preload = 'metadata';
-    video.onloadedmetadata = () => {
-      URL.revokeObjectURL(objectUrl);
-      resolve(video.duration);
-    };
-    video.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      resolve(null);
-    };
+    video.onloadedmetadata = () => finish(Number.isFinite(video.duration) ? video.duration : null);
+    video.onerror = () => finish(null);
     video.src = objectUrl;
+
+    window.setTimeout(() => finish(null), VIDEO_METADATA_TIMEOUT_MS);
   });
 }
 
