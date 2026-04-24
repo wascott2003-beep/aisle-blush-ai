@@ -4,6 +4,16 @@ import { ArrowLeft, CheckCircle, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { analyzeImageQuality } from '@/lib/image-quality';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -25,6 +35,8 @@ const UNSORTED_FOLDER = 'Unsorted';
 const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024;
 const VIDEO_METADATA_TIMEOUT_MS = 8000;
 const PER_PREVIEW_TIMEOUT_MS = 30 * 1000;
+// Soft limit — warn users when uploading exceptionally large batches.
+const LARGE_BATCH_WARNING_THRESHOLD = 200;
 
 const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
   const [step, setStep] = useState<'info' | 'upload' | 'preparing' | 'done'>('info');
@@ -37,6 +49,7 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
   const [failedCount, setFailedCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [createdWeddingId, setCreatedWeddingId] = useState<string | null>(null);
+  const [showLargeBatchWarning, setShowLargeBatchWarning] = useState(false);
 
   const mediaFiles = useMemo(
     () => files.filter((f) => isSupportedMediaFile(f) && f.size <= MAX_FILE_SIZE_BYTES),
@@ -66,6 +79,18 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
       setFailedCount(0);
       setFlaggedCount(0);
     }
+  };
+
+  const handleUploadClick = () => {
+    if (mediaFiles.length === 0) {
+      setErrorMessage('Please choose at least one photo or video to upload.');
+      return;
+    }
+    if (mediaFiles.length > LARGE_BATCH_WARNING_THRESHOLD) {
+      setShowLargeBatchWarning(true);
+      return;
+    }
+    void handleUpload();
   };
 
   const handleUpload = async () => {
@@ -218,11 +243,34 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
               )}
             </div>
           )}
-          <Button onClick={handleUpload} disabled={mediaFiles.length === 0} className="w-full h-12 gradient-rose text-primary-foreground font-body font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
+          <Button onClick={handleUploadClick} disabled={mediaFiles.length === 0} className="w-full h-12 gradient-rose text-primary-foreground font-body font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
             Upload to Unsorted
           </Button>
         </motion.div>
       )}
+
+      <AlertDialog open={showLargeBatchWarning} onOpenChange={setShowLargeBatchWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-heading">Large upload detected</AlertDialogTitle>
+            <AlertDialogDescription className="font-body">
+              You've selected {mediaFiles.length} files. For best results, upload in batches of {LARGE_BATCH_WARNING_THRESHOLD} files or less. Large weddings can be split across multiple uploads.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="font-body">Go back & reduce</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowLargeBatchWarning(false);
+                void handleUpload();
+              }}
+              className="gradient-rose text-primary-foreground font-body"
+            >
+              Continue anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {step === 'preparing' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20 space-y-6">
