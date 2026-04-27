@@ -379,7 +379,8 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
           <CheckCircle className="w-16 h-16 text-rose-gold mx-auto" />
           <h2 className="font-heading text-2xl text-foreground">Ready to view!</h2>
           <p className="text-muted-foreground font-body">
-            {Math.max(mediaFiles.length - failedCount, 0)} file{mediaFiles.length - failedCount === 1 ? '' : 's'} ready to browse
+            {Math.max(totalSelected - failedCount - skippedCount - oversizeCount, 0)} file{totalSelected - failedCount === 1 ? '' : 's'} ready to browse
+            {(skippedCount > 0 || oversizeCount > 0) && ` · ${skippedCount + oversizeCount} skipped`}
             {flaggedCount > 0 && ` · ${flaggedCount} flagged for review`}
             {failedCount > 0 && ` · ${failedCount} failed`}
           </p>
