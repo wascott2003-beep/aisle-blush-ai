@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
-import { CloudUpload, CheckCircle2, X } from 'lucide-react';
+import { CloudUpload, CheckCircle2, X, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cancelUploadsForWedding, subscribeUploadQueue } from '@/lib/upload-queue';
+import {
+  cancelUploadsForWedding,
+  retryCanceledForWedding,
+  subscribeUploadQueue,
+} from '@/lib/upload-queue';
 import { toast } from '@/hooks/use-toast';
 
 interface BackgroundUploadIndicatorProps {
