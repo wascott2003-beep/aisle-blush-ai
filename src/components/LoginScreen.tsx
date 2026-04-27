@@ -11,38 +11,65 @@ interface LoginScreenProps {
   onLogin: () => void;
 }
 
+type Mode = 'signin' | 'signup' | 'forgot';
+
 const LoginScreen = ({ onLogin }: LoginScreenProps) => {
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const switchMode = (next: Mode) => {
+    setMode(next);
+    setError('');
+    setInfo('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setInfo('');
     setSubmitting(true);
 
     try {
-      if (isSignUp) {
+      if (mode === 'signup') {
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: { data: { full_name: name }, emailRedirectTo: window.location.origin },
         });
         if (signUpError) throw signUpError;
-      } else {
+      } else if (mode === 'signin') {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
+      } else {
+        // forgot password
+        if (!email) throw new Error('Please enter your email address');
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        if (resetError) throw resetError;
+        setInfo('Check your email for a link to reset your password.');
       }
-      // Auth state listener in Index.tsx handles the rest
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
     } finally {
       setSubmitting(false);
     }
   };
+
+  const title =
+    mode === 'signup' ? 'Create your account' :
+    mode === 'forgot' ? 'Reset your password' :
+    'Welcome back';
+
+  const cta =
+    mode === 'signup' ? 'Create Account' :
+    mode === 'forgot' ? 'Send reset link' :
+    'Sign In';
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
@@ -65,33 +92,66 @@ const LoginScreen = ({ onLogin }: LoginScreenProps) => {
             <h1 className="text-4xl font-heading font-semibold text-foreground">
               Aisle <span className="text-gradient-rose">AI</span>
             </h1>
-            <p className="text-muted-foreground font-body">
-              {isSignUp ? 'Create your account' : 'Welcome back'}
-            </p>
+            <p className="text-muted-foreground font-body">{title}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {isSignUp && (
+            {mode === 'signup' && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
                 <Input type="text" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} className="h-12 bg-card border-border rounded-lg font-body" />
               </motion.div>
             )}
             <Input type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} className="h-12 bg-card border-border rounded-lg font-body" />
-            <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="h-12 bg-card border-border rounded-lg font-body" />
+            {mode !== 'forgot' && (
+              <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="h-12 bg-card border-border rounded-lg font-body" />
+            )}
+
+            {mode === 'signin' && (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => switchMode('forgot')}
+                  className="text-sm text-rose-gold font-body hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
 
             {error && <p className="text-sm text-destructive font-body">{error}</p>}
+            {info && <p className="text-sm text-foreground font-body">{info}</p>}
 
             <Button type="submit" disabled={submitting} className="w-full h-12 gradient-rose text-primary-foreground font-body font-medium text-base rounded-lg hover:opacity-90 transition-opacity">
               <Heart className="w-4 h-4 mr-2" />
-              {submitting ? 'Please wait…' : isSignUp ? 'Create Account' : 'Sign In'}
+              {submitting ? 'Please wait…' : cta}
             </Button>
           </form>
 
           <p className="text-center text-sm text-muted-foreground font-body">
-            {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-            <button onClick={() => { setIsSignUp(!isSignUp); setError(''); }} className="text-rose-gold font-medium hover:underline">
-              {isSignUp ? 'Sign in' : 'Sign up'}
-            </button>
+            {mode === 'signin' && (
+              <>
+                Don't have an account?{' '}
+                <button onClick={() => switchMode('signup')} className="text-rose-gold font-medium hover:underline">
+                  Sign up
+                </button>
+              </>
+            )}
+            {mode === 'signup' && (
+              <>
+                Already have an account?{' '}
+                <button onClick={() => switchMode('signin')} className="text-rose-gold font-medium hover:underline">
+                  Sign in
+                </button>
+              </>
+            )}
+            {mode === 'forgot' && (
+              <>
+                Remembered it?{' '}
+                <button onClick={() => switchMode('signin')} className="text-rose-gold font-medium hover:underline">
+                  Back to sign in
+                </button>
+              </>
+            )}
           </p>
         </motion.div>
       </div>
