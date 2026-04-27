@@ -48,6 +48,16 @@ const BackgroundUploadIndicator = ({ weddingId }: BackgroundUploadIndicatorProps
     }
   };
 
+  const handleRetry = () => {
+    const restored = retryCanceledForWedding(weddingId);
+    if (restored > 0) {
+      toast({
+        title: 'Retrying uploads',
+        description: `${restored} file${restored === 1 ? '' : 's'} put back in the queue.`,
+      });
+    }
+  };
+
   // Prefer "X of Y" when we know the batch size, otherwise fall back to count.
   const progressLabel =
     total > 0
@@ -75,7 +85,28 @@ const BackgroundUploadIndicator = ({ weddingId }: BackgroundUploadIndicatorProps
           </button>
         </motion.div>
       )}
-      {showDone && pending === 0 && (
+      {pending === 0 && canceled > 0 && (
+        <motion.div
+          key="canceled"
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          className="flex items-center gap-2 rounded-full bg-card border border-border pl-3 pr-1 py-1 text-xs font-body text-muted-foreground"
+        >
+          <span>
+            {canceled} file{canceled === 1 ? '' : 's'} canceled
+          </span>
+          <button
+            onClick={handleRetry}
+            aria-label="Retry canceled uploads"
+            className="ml-1 inline-flex items-center gap-1 rounded-full bg-rose-gold/10 text-rose-gold hover:bg-rose-gold/20 transition-colors px-2 py-0.5"
+          >
+            <RotateCcw className="w-3 h-3" />
+            <span className="font-body font-medium">Retry</span>
+          </button>
+        </motion.div>
+      )}
+      {showDone && pending === 0 && canceled === 0 && (
         <motion.div
           key="done"
           initial={{ opacity: 0, y: -8 }}
