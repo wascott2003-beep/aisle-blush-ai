@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, CheckCircle, Upload } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Upload, Image as ImageIcon, Video as VideoIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
@@ -42,104 +42,80 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
   const [step, setStep] = useState<'info' | 'upload' | 'preparing' | 'done'>('info');
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
-  const [files, setFiles] = useState<File[]>([]);
+  // Lazy: hold the raw FileList(s) without iterating. iOS Safari materializes
+  // video file handles on access, so we MUST NOT touch .size/.type/etc until
+  // we are about to upload that specific file.
+  const [photoSelection, setPhotoSelection] = useState<FileList | null>(null);
+  const [videoSelection, setVideoSelection] = useState<FileList | null>(null);
   const [prepProgress, setPrepProgress] = useState(0);
   const [prepStatus, setPrepStatus] = useState('Preparing previews...');
   const [flaggedCount, setFlaggedCount] = useState(0);
   const [failedCount, setFailedCount] = useState(0);
+  const [skippedCount, setSkippedCount] = useState(0);
+  const [oversizeCount, setOversizeCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [createdWeddingId, setCreatedWeddingId] = useState<string | null>(null);
   const [showLargeBatchWarning, setShowLargeBatchWarning] = useState(false);
-  const [isProcessingSelection, setIsProcessingSelection] = useState(false);
-  const [selectionProgress, setSelectionProgress] = useState({ done: 0, total: 0 });
-  const [counts, setCounts] = useState({ supported: 0, oversize: 0, skipped: 0 });
-  const [previewUrls, setPreviewUrls] = useState<{ file: File; url: string }[]>([]);
 
-  const mediaFiles = useMemo(
-    () => files.filter((f) => isSupportedMediaFile(f) && f.size <= MAX_FILE_SIZE_BYTES),
-    [files],
-  );
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
-  // Revoke preview URLs on unmount or when they change.
-  useEffect(() => {
-    return () => {
-      previewUrls.forEach(({ url }) => URL.revokeObjectURL(url));
-    };
-  }, [previewUrls]);
+  const photoCount = photoSelection?.length ?? 0;
+  const videoCount = videoSelection?.length ?? 0;
+  const totalSelected = photoCount + videoCount;
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const fileList = e.target.files;
-    if (!fileList || fileList.length === 0) return;
-
-    // Reset error state immediately so the UI feels responsive.
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Just store the FileList reference. Do NOT iterate or read any file metadata.
+    const list = e.target.files;
+    if (!list || list.length === 0) return;
+    setPhotoSelection(list);
     setErrorMessage(null);
     setFailedCount(0);
     setFlaggedCount(0);
-
-    // Clear previous preview URLs.
-    setPreviewUrls((prev) => {
-      prev.forEach(({ url }) => URL.revokeObjectURL(url));
-      return [];
-    });
-
-    const total = fileList.length;
-    setIsProcessingSelection(true);
-    setSelectionProgress({ done: 0, total });
-    setCounts({ supported: 0, oversize: 0, skipped: 0 });
-
-    // Process the FileList in small chunks, yielding to the main thread between
-    // each chunk so the mobile browser stays responsive while iOS/Android
-    // serializes hundreds of HEIC/MP4 file handles.
-    const CHUNK = 25;
-    const collected: File[] = [];
-    const newPreviews: { file: File; url: string }[] = [];
-    let supported = 0;
-    let oversize = 0;
-    let skipped = 0;
-
-    for (let i = 0; i < total; i += CHUNK) {
-      const end = Math.min(i + CHUNK, total);
-      for (let j = i; j < end; j++) {
-        const file = fileList[j];
-        collected.push(file);
-        if (isSupportedMediaFile(file)) {
-          if (file.size <= MAX_FILE_SIZE_BYTES) {
-            supported += 1;
-            // Only build object URLs for the first 10 previews to keep memory low.
-            if (newPreviews.length < 10) {
-              newPreviews.push({ file, url: URL.createObjectURL(file) });
-            }
-          } else {
-            oversize += 1;
-          }
-        } else {
-          skipped += 1;
-        }
-      }
-      // Update UI progress and yield to the event loop so the picker can close
-      // and the main thread can paint between chunks.
-      setSelectionProgress({ done: end, total });
-      setCounts({ supported, oversize, skipped });
-      await yieldToMain();
-    }
-
-    setFiles(collected);
-    setPreviewUrls(newPreviews);
-    setIsProcessingSelection(false);
-
-    // Allow re-selecting the same files later.
-    e.target.value = '';
+    setSkippedCount(0);
+    setOversizeCount(0);
   };
 
-  const oversizeCount = counts.oversize;
-  const skippedCount = counts.skipped;
+  const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const list = e.target.files;
+    if (!list || list.length === 0) return;
+    setVideoSelection(list);
+    setErrorMessage(null);
+    setFailedCount(0);
+    setFlaggedCount(0);
+    setSkippedCount(0);
+    setOversizeCount(0);
+  };
+
+  const clearSelection = () => {
+    setPhotoSelection(null);
+    setVideoSelection(null);
+    if (photoInputRef.current) photoInputRef.current.value = '';
+    if (videoInputRef.current) videoInputRef.current.value = '';
+  };
+
+  // Iterate FileList lazily — yields a File one at a time without converting
+  // to an array up front. Safe to call inside the upload loop because each
+  // access is paired with an await, giving the main thread time to breathe.
+  function* iterateSelections(): Generator<File> {
+    if (photoSelection) {
+      for (let i = 0; i < photoSelection.length; i++) {
+        yield photoSelection[i];
+      }
+    }
+    if (videoSelection) {
+      for (let i = 0; i < videoSelection.length; i++) {
+        yield videoSelection[i];
+      }
+    }
+  }
 
   const handleUploadClick = () => {
-    if (mediaFiles.length === 0) {
+    if (totalSelected === 0) {
       setErrorMessage('Please choose at least one photo or video to upload.');
       return;
     }
-    if (mediaFiles.length > LARGE_BATCH_WARNING_THRESHOLD) {
+    if (totalSelected > LARGE_BATCH_WARNING_THRESHOLD) {
       setShowLargeBatchWarning(true);
       return;
     }
@@ -147,7 +123,7 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
   };
 
   const handleUpload = async () => {
-    if (mediaFiles.length === 0) {
+    if (totalSelected === 0) {
       setErrorMessage('Please choose at least one photo or video to upload.');
       return;
     }
@@ -173,18 +149,54 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
       weddingId = await createWeddingInDb(user.id, name, date);
       setCreatedWeddingId(weddingId);
 
-      // Process files in sequential batches of 5. Each batch fully completes
-      // before the next starts. Failures within a batch are isolated so one bad
-      // file never freezes the whole upload.
+      // Lazily collect file references in batches of 5. Each access into the
+      // FileList only happens here (not at selection time), and only when that
+      // specific file is about to be processed — keeping iOS Safari from
+      // materializing every video file handle up front.
       const BATCH_SIZE = 5;
-      for (let batchStart = 0; batchStart < mediaFiles.length; batchStart += BATCH_SIZE) {
-        const batch = mediaFiles.slice(batchStart, batchStart + BATCH_SIZE);
-        setPrepStatus(`Uploading ${batchStart + 1}–${Math.min(batchStart + batch.length, mediaFiles.length)} of ${mediaFiles.length} files`);
+      const iterator = iterateSelections();
+      let batchIndex = 0;
+      let localSkipped = 0;
+      let localOversize = 0;
+
+      while (true) {
+        const batch: File[] = [];
+        for (let i = 0; i < BATCH_SIZE; i++) {
+          const next = iterator.next();
+          if (next.done) break;
+          const file = next.value;
+          // Validate at access time — this is when iOS finally hands us a real File.
+          if (!isSupportedMediaFile(file)) {
+            localSkipped += 1;
+            continue;
+          }
+          if (file.size > MAX_FILE_SIZE_BYTES) {
+            localOversize += 1;
+            continue;
+          }
+          batch.push(file);
+        }
+        if (batch.length === 0) {
+          // No valid files in this slice; check if iterator is exhausted.
+          const peek = iterator.next();
+          if (peek.done) break;
+          // Otherwise put the peeked file back into a single-item batch path.
+          if (isSupportedMediaFile(peek.value) && peek.value.size <= MAX_FILE_SIZE_BYTES) {
+            batch.push(peek.value);
+          } else {
+            if (!isSupportedMediaFile(peek.value)) localSkipped += 1;
+            else localOversize += 1;
+            continue;
+          }
+        }
+
+        const startIdx = batchIndex * BATCH_SIZE;
+        setPrepStatus(`Uploading ${startIdx + 1}–${startIdx + batch.length} of ${totalSelected} files`);
 
         const results = await Promise.allSettled(
           batch.map((file, idx) =>
             withTimeout(
-              prepareAndQueue(weddingId, file, batchStart + idx),
+              prepareAndQueue(weddingId, file, startIdx + idx),
               PER_PREVIEW_TIMEOUT_MS,
               `Preview generation timed out for ${file.name}`,
             ),
@@ -200,9 +212,13 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
           }
           prepared += 1;
         });
-        setPrepProgress((prepared / mediaFiles.length) * 100);
-        setPrepStatus(`Uploading ${Math.min(prepared, mediaFiles.length)} of ${mediaFiles.length} files`);
+        batchIndex += 1;
+        setPrepProgress((prepared / totalSelected) * 100);
+        setPrepStatus(`Uploading ${Math.min(prepared, totalSelected)} of ${totalSelected} files`);
       }
+
+      setSkippedCount(localSkipped);
+      setOversizeCount(localOversize);
 
       if (prepared - failed === 0) throw new Error('All files failed to prepare');
 
@@ -259,49 +275,61 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
             <h1 className="text-3xl font-heading font-semibold text-foreground">Upload Media</h1>
             <p className="text-muted-foreground font-body mt-1">{name} · {new Date(date).toLocaleDateString()}</p>
           </div>
-          <label className="block border-2 border-dashed border-border rounded-xl p-12 text-center cursor-pointer hover:border-rose-gold/50 transition-colors bg-card">
-            <input type="file" multiple accept="image/*,video/*" onChange={handleFileChange} className="hidden" disabled={isProcessingSelection} />
-            <Upload className={`w-10 h-10 text-rose-gold/50 mx-auto mb-3 ${isProcessingSelection ? 'animate-pulse' : ''}`} />
-            <p className="font-body text-foreground font-medium">
-              {isProcessingSelection
-                ? `Reading ${selectionProgress.done} of ${selectionProgress.total} files…`
-                : files.length > 0
-                  ? `${mediaFiles.length} supported file${mediaFiles.length === 1 ? '' : 's'} selected`
-                  : 'Drop files or click to browse'}
-            </p>
-            <p className="text-xs text-muted-foreground font-body mt-1">Photos and videos · originals upload in the background</p>
-            {!isProcessingSelection && skippedCount > 0 && (
-              <p className="text-xs text-muted-foreground font-body mt-1">{skippedCount} unsupported file{skippedCount === 1 ? '' : 's'} will be skipped</p>
-            )}
-            {!isProcessingSelection && oversizeCount > 0 && (
-              <p className="text-xs text-rose-gold font-body mt-1">{oversizeCount} file{oversizeCount === 1 ? '' : 's'} over 500MB will be skipped</p>
-            )}
-          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-rose-gold/50 transition-colors bg-card">
+              <input
+                ref={photoInputRef}
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handlePhotoChange}
+                className="hidden"
+              />
+              <ImageIcon className="w-8 h-8 text-rose-gold/60 mx-auto mb-2" />
+              <p className="font-body text-foreground font-medium text-sm">Upload Photos</p>
+              <p className="text-xs text-muted-foreground font-body mt-1">
+                {photoCount > 0 ? `${photoCount} selected` : 'Choose images'}
+              </p>
+            </label>
+            <label className="block border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-rose-gold/50 transition-colors bg-card">
+              <input
+                ref={videoInputRef}
+                type="file"
+                multiple
+                accept="video/*"
+                onChange={handleVideoChange}
+                className="hidden"
+              />
+              <VideoIcon className="w-8 h-8 text-rose-gold/60 mx-auto mb-2" />
+              <p className="font-body text-foreground font-medium text-sm">Upload Videos</p>
+              <p className="text-xs text-muted-foreground font-body mt-1">
+                {videoCount > 0 ? `${videoCount} selected` : 'Choose videos'}
+              </p>
+            </label>
+          </div>
+          <p className="text-xs text-muted-foreground font-body text-center">
+            Files are read one-by-one as they upload — keeps mobile snappy. Originals upload in the background.
+          </p>
+          {totalSelected > 0 && (
+            <div className="flex items-center justify-between rounded-lg bg-card border border-border px-4 py-3">
+              <p className="text-sm font-body text-foreground">
+                {totalSelected} file{totalSelected === 1 ? '' : 's'} ready to upload
+              </p>
+              <button
+                onClick={clearSelection}
+                className="text-xs font-body text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          )}
           {errorMessage && (
             <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm font-body text-foreground">
               {errorMessage}
             </div>
           )}
-          {files.length > 0 && (
-            <div className="grid grid-cols-5 gap-1.5">
-              {previewUrls.map(({ file, url }, i) => (
-                <div key={`${file.name}-${i}`} className="aspect-square rounded-lg overflow-hidden bg-accent border border-border">
-                  {file.type.startsWith('image/') ? (
-                    <img src={url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <video src={url} className="w-full h-full object-cover" />
-                  )}
-                </div>
-              ))}
-              {files.length > 10 && (
-                <div className="aspect-square rounded-lg bg-accent border border-border flex items-center justify-center">
-                  <span className="text-xs text-muted-foreground font-body">+{files.length - 10}</span>
-                </div>
-              )}
-            </div>
-          )}
-          <Button onClick={handleUploadClick} disabled={mediaFiles.length === 0 || isProcessingSelection} className="w-full h-12 gradient-rose text-primary-foreground font-body font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
-            {isProcessingSelection ? 'Reading files…' : 'Upload to Unsorted'}
+          <Button onClick={handleUploadClick} disabled={totalSelected === 0} className="w-full h-12 gradient-rose text-primary-foreground font-body font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
+            Upload to Unsorted
           </Button>
         </motion.div>
       )}
@@ -311,7 +339,7 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
           <AlertDialogHeader>
             <AlertDialogTitle className="font-heading">Large upload detected</AlertDialogTitle>
             <AlertDialogDescription className="font-body">
-              You've selected {mediaFiles.length} files. For best results, upload in batches of {LARGE_BATCH_WARNING_THRESHOLD} files or less. Large weddings can be split across multiple uploads.
+              You've selected {totalSelected} files. For best results, upload in batches of {LARGE_BATCH_WARNING_THRESHOLD} files or less. Large weddings can be split across multiple uploads.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -351,7 +379,8 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
           <CheckCircle className="w-16 h-16 text-rose-gold mx-auto" />
           <h2 className="font-heading text-2xl text-foreground">Ready to view!</h2>
           <p className="text-muted-foreground font-body">
-            {Math.max(mediaFiles.length - failedCount, 0)} file{mediaFiles.length - failedCount === 1 ? '' : 's'} ready to browse
+            {Math.max(totalSelected - failedCount - skippedCount - oversizeCount, 0)} file{totalSelected - failedCount === 1 ? '' : 's'} ready to browse
+            {(skippedCount > 0 || oversizeCount > 0) && ` · ${skippedCount + oversizeCount} skipped`}
             {flaggedCount > 0 && ` · ${flaggedCount} flagged for review`}
             {failedCount > 0 && ` · ${failedCount} failed`}
           </p>
@@ -484,22 +513,6 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
       window.setTimeout(() => reject(new Error(message)), timeoutMs);
     }),
   ]);
-}
-
-// Yield to the browser between chunks so the UI thread can paint and the
-// native file picker can fully dismiss on mobile. Prefers requestIdleCallback
-// when available, otherwise falls back to a 0ms timeout / microtask.
-function yieldToMain(): Promise<void> {
-  return new Promise((resolve) => {
-    const w = window as unknown as {
-      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
-    };
-    if (typeof w.requestIdleCallback === 'function') {
-      w.requestIdleCallback(() => resolve(), { timeout: 50 });
-    } else {
-      window.setTimeout(resolve, 0);
-    }
-  });
 }
 
 export default UploadFlow;
