@@ -42,104 +42,80 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
   const [step, setStep] = useState<'info' | 'upload' | 'preparing' | 'done'>('info');
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
-  const [files, setFiles] = useState<File[]>([]);
+  // Lazy: hold the raw FileList(s) without iterating. iOS Safari materializes
+  // video file handles on access, so we MUST NOT touch .size/.type/etc until
+  // we are about to upload that specific file.
+  const [photoSelection, setPhotoSelection] = useState<FileList | null>(null);
+  const [videoSelection, setVideoSelection] = useState<FileList | null>(null);
   const [prepProgress, setPrepProgress] = useState(0);
   const [prepStatus, setPrepStatus] = useState('Preparing previews...');
   const [flaggedCount, setFlaggedCount] = useState(0);
   const [failedCount, setFailedCount] = useState(0);
+  const [skippedCount, setSkippedCount] = useState(0);
+  const [oversizeCount, setOversizeCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [createdWeddingId, setCreatedWeddingId] = useState<string | null>(null);
   const [showLargeBatchWarning, setShowLargeBatchWarning] = useState(false);
-  const [isProcessingSelection, setIsProcessingSelection] = useState(false);
-  const [selectionProgress, setSelectionProgress] = useState({ done: 0, total: 0 });
-  const [counts, setCounts] = useState({ supported: 0, oversize: 0, skipped: 0 });
-  const [previewUrls, setPreviewUrls] = useState<{ file: File; url: string }[]>([]);
 
-  const mediaFiles = useMemo(
-    () => files.filter((f) => isSupportedMediaFile(f) && f.size <= MAX_FILE_SIZE_BYTES),
-    [files],
-  );
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
-  // Revoke preview URLs on unmount or when they change.
-  useEffect(() => {
-    return () => {
-      previewUrls.forEach(({ url }) => URL.revokeObjectURL(url));
-    };
-  }, [previewUrls]);
+  const photoCount = photoSelection?.length ?? 0;
+  const videoCount = videoSelection?.length ?? 0;
+  const totalSelected = photoCount + videoCount;
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const fileList = e.target.files;
-    if (!fileList || fileList.length === 0) return;
-
-    // Reset error state immediately so the UI feels responsive.
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Just store the FileList reference. Do NOT iterate or read any file metadata.
+    const list = e.target.files;
+    if (!list || list.length === 0) return;
+    setPhotoSelection(list);
     setErrorMessage(null);
     setFailedCount(0);
     setFlaggedCount(0);
-
-    // Clear previous preview URLs.
-    setPreviewUrls((prev) => {
-      prev.forEach(({ url }) => URL.revokeObjectURL(url));
-      return [];
-    });
-
-    const total = fileList.length;
-    setIsProcessingSelection(true);
-    setSelectionProgress({ done: 0, total });
-    setCounts({ supported: 0, oversize: 0, skipped: 0 });
-
-    // Process the FileList in small chunks, yielding to the main thread between
-    // each chunk so the mobile browser stays responsive while iOS/Android
-    // serializes hundreds of HEIC/MP4 file handles.
-    const CHUNK = 25;
-    const collected: File[] = [];
-    const newPreviews: { file: File; url: string }[] = [];
-    let supported = 0;
-    let oversize = 0;
-    let skipped = 0;
-
-    for (let i = 0; i < total; i += CHUNK) {
-      const end = Math.min(i + CHUNK, total);
-      for (let j = i; j < end; j++) {
-        const file = fileList[j];
-        collected.push(file);
-        if (isSupportedMediaFile(file)) {
-          if (file.size <= MAX_FILE_SIZE_BYTES) {
-            supported += 1;
-            // Only build object URLs for the first 10 previews to keep memory low.
-            if (newPreviews.length < 10) {
-              newPreviews.push({ file, url: URL.createObjectURL(file) });
-            }
-          } else {
-            oversize += 1;
-          }
-        } else {
-          skipped += 1;
-        }
-      }
-      // Update UI progress and yield to the event loop so the picker can close
-      // and the main thread can paint between chunks.
-      setSelectionProgress({ done: end, total });
-      setCounts({ supported, oversize, skipped });
-      await yieldToMain();
-    }
-
-    setFiles(collected);
-    setPreviewUrls(newPreviews);
-    setIsProcessingSelection(false);
-
-    // Allow re-selecting the same files later.
-    e.target.value = '';
+    setSkippedCount(0);
+    setOversizeCount(0);
   };
 
-  const oversizeCount = counts.oversize;
-  const skippedCount = counts.skipped;
+  const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const list = e.target.files;
+    if (!list || list.length === 0) return;
+    setVideoSelection(list);
+    setErrorMessage(null);
+    setFailedCount(0);
+    setFlaggedCount(0);
+    setSkippedCount(0);
+    setOversizeCount(0);
+  };
+
+  const clearSelection = () => {
+    setPhotoSelection(null);
+    setVideoSelection(null);
+    if (photoInputRef.current) photoInputRef.current.value = '';
+    if (videoInputRef.current) videoInputRef.current.value = '';
+  };
+
+  // Iterate FileList lazily — yields a File one at a time without converting
+  // to an array up front. Safe to call inside the upload loop because each
+  // access is paired with an await, giving the main thread time to breathe.
+  function* iterateSelections(): Generator<File> {
+    if (photoSelection) {
+      for (let i = 0; i < photoSelection.length; i++) {
+        yield photoSelection[i];
+      }
+    }
+    if (videoSelection) {
+      for (let i = 0; i < videoSelection.length; i++) {
+        yield videoSelection[i];
+      }
+    }
+  }
 
   const handleUploadClick = () => {
-    if (mediaFiles.length === 0) {
+    if (totalSelected === 0) {
       setErrorMessage('Please choose at least one photo or video to upload.');
       return;
     }
-    if (mediaFiles.length > LARGE_BATCH_WARNING_THRESHOLD) {
+    if (totalSelected > LARGE_BATCH_WARNING_THRESHOLD) {
       setShowLargeBatchWarning(true);
       return;
     }
@@ -147,7 +123,7 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
   };
 
   const handleUpload = async () => {
-    if (mediaFiles.length === 0) {
+    if (totalSelected === 0) {
       setErrorMessage('Please choose at least one photo or video to upload.');
       return;
     }
