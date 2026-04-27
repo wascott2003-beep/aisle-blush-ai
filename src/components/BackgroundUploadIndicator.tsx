@@ -16,6 +16,7 @@ const BackgroundUploadIndicator = ({ weddingId }: BackgroundUploadIndicatorProps
   const [pending, setPending] = useState(0);
   const [completed, setCompleted] = useState(0);
   const [total, setTotal] = useState(0);
+  const [canceled, setCanceled] = useState(0);
   const [showDone, setShowDone] = useState(false);
   const [prevPending, setPrevPending] = useState(0);
 
@@ -24,6 +25,7 @@ const BackgroundUploadIndicator = ({ weddingId }: BackgroundUploadIndicatorProps
       setPending(s.pendingByWedding[weddingId] || 0);
       setCompleted(s.completed);
       setTotal(s.total);
+      setCanceled(s.canceledByWedding[weddingId] || 0);
     });
   }, [weddingId]);
 
