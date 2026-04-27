@@ -515,20 +515,4 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
   ]);
 }
 
-// Yield to the browser between chunks so the UI thread can paint and the
-// native file picker can fully dismiss on mobile. Prefers requestIdleCallback
-// when available, otherwise falls back to a 0ms timeout / microtask.
-function yieldToMain(): Promise<void> {
-  return new Promise((resolve) => {
-    const w = window as unknown as {
-      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
-    };
-    if (typeof w.requestIdleCallback === 'function') {
-      w.requestIdleCallback(() => resolve(), { timeout: 50 });
-    } else {
-      window.setTimeout(resolve, 0);
-    }
-  });
-}
-
 export default UploadFlow;
