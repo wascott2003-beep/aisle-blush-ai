@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
-import { CloudUpload, CheckCircle2, X } from 'lucide-react';
+import { CloudUpload, CheckCircle2, X, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cancelUploadsForWedding, subscribeUploadQueue } from '@/lib/upload-queue';
+import {
+  cancelUploadsForWedding,
+  retryCanceledForWedding,
+  subscribeUploadQueue,
+} from '@/lib/upload-queue';
 import { toast } from '@/hooks/use-toast';
 
 interface BackgroundUploadIndicatorProps {
@@ -12,6 +16,7 @@ const BackgroundUploadIndicator = ({ weddingId }: BackgroundUploadIndicatorProps
   const [pending, setPending] = useState(0);
   const [completed, setCompleted] = useState(0);
   const [total, setTotal] = useState(0);
+  const [canceled, setCanceled] = useState(0);
   const [showDone, setShowDone] = useState(false);
   const [prevPending, setPrevPending] = useState(0);
 
@@ -20,6 +25,7 @@ const BackgroundUploadIndicator = ({ weddingId }: BackgroundUploadIndicatorProps
       setPending(s.pendingByWedding[weddingId] || 0);
       setCompleted(s.completed);
       setTotal(s.total);
+      setCanceled(s.canceledByWedding[weddingId] || 0);
     });
   }, [weddingId]);
 
@@ -38,6 +44,16 @@ const BackgroundUploadIndicator = ({ weddingId }: BackgroundUploadIndicatorProps
       toast({
         title: 'Uploads canceled',
         description: `${removed} pending file${removed === 1 ? '' : 's'} canceled. Any file already uploading will finish.`,
+      });
+    }
+  };
+
+  const handleRetry = () => {
+    const restored = retryCanceledForWedding(weddingId);
+    if (restored > 0) {
+      toast({
+        title: 'Retrying uploads',
+        description: `${restored} file${restored === 1 ? '' : 's'} put back in the queue.`,
       });
     }
   };
@@ -69,7 +85,28 @@ const BackgroundUploadIndicator = ({ weddingId }: BackgroundUploadIndicatorProps
           </button>
         </motion.div>
       )}
-      {showDone && pending === 0 && (
+      {pending === 0 && canceled > 0 && (
+        <motion.div
+          key="canceled"
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          className="flex items-center gap-2 rounded-full bg-card border border-border pl-3 pr-1 py-1 text-xs font-body text-muted-foreground"
+        >
+          <span>
+            {canceled} file{canceled === 1 ? '' : 's'} canceled
+          </span>
+          <button
+            onClick={handleRetry}
+            aria-label="Retry canceled uploads"
+            className="ml-1 inline-flex items-center gap-1 rounded-full bg-rose-gold/10 text-rose-gold hover:bg-rose-gold/20 transition-colors px-2 py-0.5"
+          >
+            <RotateCcw className="w-3 h-3" />
+            <span className="font-body font-medium">Retry</span>
+          </button>
+        </motion.div>
+      )}
+      {showDone && pending === 0 && canceled === 0 && (
         <motion.div
           key="done"
           initial={{ opacity: 0, y: -8 }}

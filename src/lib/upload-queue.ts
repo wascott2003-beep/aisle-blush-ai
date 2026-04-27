@@ -25,11 +25,14 @@ interface State {
   currentName: string | null;
   currentProgress: number; // 0-1 (best-effort; supabase-js v2 doesn't expose progress, so 0 or 1)
   pendingByWedding: Record<string, number>;
+  canceledByWedding: Record<string, number>;
 }
 
 type Listener = (s: State) => void;
 
 const queue: QueueJob[] = [];
+// Stash of jobs the user canceled, keyed by weddingId, so they can be retried.
+const canceledByWedding: Record<string, QueueJob[]> = {};
 const listeners = new Set<Listener>();
 let running = false;
 
@@ -41,10 +44,17 @@ const state: State = {
   currentName: null,
   currentProgress: 0,
   pendingByWedding: {},
+  canceledByWedding: {},
 };
 
 function emit() {
-  listeners.forEach((l) => l({ ...state, pendingByWedding: { ...state.pendingByWedding } }));
+  listeners.forEach((l) =>
+    l({
+      ...state,
+      pendingByWedding: { ...state.pendingByWedding },
+      canceledByWedding: { ...state.canceledByWedding },
+    }),
+  );
 }
 
 function bumpWedding(weddingId: string, delta: number) {
@@ -55,7 +65,11 @@ function bumpWedding(weddingId: string, delta: number) {
 
 export function subscribeUploadQueue(listener: Listener): () => void {
   listeners.add(listener);
-  listener({ ...state, pendingByWedding: { ...state.pendingByWedding } });
+  listener({
+    ...state,
+    pendingByWedding: { ...state.pendingByWedding },
+    canceledByWedding: { ...state.canceledByWedding },
+  });
   return () => listeners.delete(listener);
 }
 
