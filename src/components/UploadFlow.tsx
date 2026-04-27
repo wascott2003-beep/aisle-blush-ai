@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, CheckCircle, Upload, Image as ImageIcon, Video as VideoIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
