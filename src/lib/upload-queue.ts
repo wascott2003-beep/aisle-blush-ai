@@ -85,28 +85,55 @@ export function enqueueUpload(job: QueueJob) {
 // Cancel every pending upload for a given wedding. The job currently being
 // uploaded (already in flight) cannot be aborted — supabase-js v2 doesn't
 // expose an AbortSignal for storage uploads — so it will finish, but no
-// further jobs for this wedding will start. Returns the number of jobs
-// removed from the queue.
+// further jobs for this wedding will start. Removed jobs are stashed so the
+// user can hit Retry to put them back into the queue. Returns the number of
+// jobs removed from the queue.
 export function cancelUploadsForWedding(weddingId: string): number {
+  const stash: QueueJob[] = canceledByWedding[weddingId] ? [...canceledByWedding[weddingId]] : [];
   let removed = 0;
   for (let i = queue.length - 1; i >= 0; i--) {
     if (queue[i].weddingId === weddingId) {
+      stash.unshift(queue[i]); // preserve original order
       queue.splice(i, 1);
       removed += 1;
     }
   }
   if (removed > 0) {
+    canceledByWedding[weddingId] = stash;
     // Reflect the cancellation in the per-wedding pending counter so the
     // indicator dismisses immediately.
     const current = state.pendingByWedding[weddingId] || 0;
     const next = Math.max(current - removed, 0);
     if (next === 0) delete state.pendingByWedding[weddingId];
     else state.pendingByWedding[weddingId] = next;
+    state.canceledByWedding[weddingId] = stash.length;
     // Decrement the global total so the "X of Y" label stays accurate.
     state.total = Math.max(state.total - removed, state.completed + state.failed);
     emit();
   }
   return removed;
+}
+
+// Re-enqueue every job that was canceled for a wedding. Returns the number
+// of jobs put back into the queue.
+export function retryCanceledForWedding(weddingId: string): number {
+  const stash = canceledByWedding[weddingId];
+  if (!stash || stash.length === 0) return 0;
+  const jobs = [...stash];
+  delete canceledByWedding[weddingId];
+  delete state.canceledByWedding[weddingId];
+  for (const job of jobs) {
+    queue.push(job);
+    state.total += 1;
+    bumpWedding(job.weddingId, 1);
+  }
+  emit();
+  void runLoop();
+  return jobs.length;
+}
+
+export function getCanceledCountForWedding(weddingId: string): number {
+  return state.canceledByWedding[weddingId] || 0;
 }
 
 const BATCH_SIZE = 5;
