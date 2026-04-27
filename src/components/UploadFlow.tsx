@@ -339,7 +339,7 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
           <AlertDialogHeader>
             <AlertDialogTitle className="font-heading">Large upload detected</AlertDialogTitle>
             <AlertDialogDescription className="font-body">
-              You've selected {mediaFiles.length} files. For best results, upload in batches of {LARGE_BATCH_WARNING_THRESHOLD} files or less. Large weddings can be split across multiple uploads.
+              You've selected {totalSelected} files. For best results, upload in batches of {LARGE_BATCH_WARNING_THRESHOLD} files or less. Large weddings can be split across multiple uploads.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
