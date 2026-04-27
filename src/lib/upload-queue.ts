@@ -82,6 +82,33 @@ export function enqueueUpload(job: QueueJob) {
   void runLoop();
 }
 
+// Cancel every pending upload for a given wedding. The job currently being
+// uploaded (already in flight) cannot be aborted — supabase-js v2 doesn't
+// expose an AbortSignal for storage uploads — so it will finish, but no
+// further jobs for this wedding will start. Returns the number of jobs
+// removed from the queue.
+export function cancelUploadsForWedding(weddingId: string): number {
+  let removed = 0;
+  for (let i = queue.length - 1; i >= 0; i--) {
+    if (queue[i].weddingId === weddingId) {
+      queue.splice(i, 1);
+      removed += 1;
+    }
+  }
+  if (removed > 0) {
+    // Reflect the cancellation in the per-wedding pending counter so the
+    // indicator dismisses immediately.
+    const current = state.pendingByWedding[weddingId] || 0;
+    const next = Math.max(current - removed, 0);
+    if (next === 0) delete state.pendingByWedding[weddingId];
+    else state.pendingByWedding[weddingId] = next;
+    // Decrement the global total so the "X of Y" label stays accurate.
+    state.total = Math.max(state.total - removed, state.completed + state.failed);
+    emit();
+  }
+  return removed;
+}
+
 const BATCH_SIZE = 5;
 
 async function processJob(job: QueueJob) {
