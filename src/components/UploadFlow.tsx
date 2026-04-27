@@ -260,16 +260,20 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
             <p className="text-muted-foreground font-body mt-1">{name} · {new Date(date).toLocaleDateString()}</p>
           </div>
           <label className="block border-2 border-dashed border-border rounded-xl p-12 text-center cursor-pointer hover:border-rose-gold/50 transition-colors bg-card">
-            <input type="file" multiple accept="image/*,video/*" onChange={handleFileChange} className="hidden" />
-            <Upload className="w-10 h-10 text-rose-gold/50 mx-auto mb-3" />
+            <input type="file" multiple accept="image/*,video/*" onChange={handleFileChange} className="hidden" disabled={isProcessingSelection} />
+            <Upload className={`w-10 h-10 text-rose-gold/50 mx-auto mb-3 ${isProcessingSelection ? 'animate-pulse' : ''}`} />
             <p className="font-body text-foreground font-medium">
-              {files.length > 0 ? `${mediaFiles.length} supported file${mediaFiles.length === 1 ? '' : 's'} selected` : 'Drop files or click to browse'}
+              {isProcessingSelection
+                ? `Reading ${selectionProgress.done} of ${selectionProgress.total} files…`
+                : files.length > 0
+                  ? `${mediaFiles.length} supported file${mediaFiles.length === 1 ? '' : 's'} selected`
+                  : 'Drop files or click to browse'}
             </p>
             <p className="text-xs text-muted-foreground font-body mt-1">Photos and videos · originals upload in the background</p>
-            {skippedCount > 0 && (
+            {!isProcessingSelection && skippedCount > 0 && (
               <p className="text-xs text-muted-foreground font-body mt-1">{skippedCount} unsupported file{skippedCount === 1 ? '' : 's'} will be skipped</p>
             )}
-            {oversizeCount > 0 && (
+            {!isProcessingSelection && oversizeCount > 0 && (
               <p className="text-xs text-rose-gold font-body mt-1">{oversizeCount} file{oversizeCount === 1 ? '' : 's'} over 500MB will be skipped</p>
             )}
           </label>
