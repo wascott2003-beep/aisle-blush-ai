@@ -27,6 +27,42 @@ interface WeddingDetailProps {
 const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendors, onCreateReel, onRefresh }: WeddingDetailProps) => {
   const [openFolder, setOpenFolder] = useState<MediaFolder | null>(null);
   const [viewingItem, setViewingItem] = useState<MediaItem | null>(null);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        toast({ title: 'Please sign in to export', variant: 'destructive' });
+        return;
+      }
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const url = `https://${projectId}.supabase.co/functions/v1/zip-export?weddingId=${encodeURIComponent(wedding.id)}`;
+      const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(text || `Export failed (${resp.status})`);
+      }
+      const blob = await resp.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = `${wedding.name.replace(/[\\/:*?"<>|]+/g, '_')}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+      toast({ title: 'Export ready', description: 'Your ZIP has been downloaded.' });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Export failed';
+      toast({ title: 'Export failed', description: msg, variant: 'destructive' });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Keep openFolder in sync with wedding data after deletions
   const currentFolder = openFolder
