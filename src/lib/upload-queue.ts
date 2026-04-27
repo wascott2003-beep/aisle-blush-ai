@@ -65,7 +65,11 @@ function bumpWedding(weddingId: string, delta: number) {
 
 export function subscribeUploadQueue(listener: Listener): () => void {
   listeners.add(listener);
-  listener({ ...state, pendingByWedding: { ...state.pendingByWedding } });
+  listener({
+    ...state,
+    pendingByWedding: { ...state.pendingByWedding },
+    canceledByWedding: { ...state.canceledByWedding },
+  });
   return () => listeners.delete(listener);
 }
 
