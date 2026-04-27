@@ -177,6 +177,19 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
             <Clapperboard className="w-4 h-4 mr-2" />
             Create Reel
           </Button>
+          <Button
+            onClick={handleExport}
+            disabled={exporting || wedding.mediaCount === 0}
+            variant="outline"
+            className="border-rose-gold text-rose-gold hover:bg-accent font-body"
+          >
+            {exporting ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4 mr-2" />
+            )}
+            {exporting ? 'Preparing ZIP…' : 'Export ZIP'}
+          </Button>
           {wedding.flaggedItems.length > 0 && (
             <Button
               onClick={onReview}
