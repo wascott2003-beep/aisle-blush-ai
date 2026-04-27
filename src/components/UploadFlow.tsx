@@ -149,18 +149,54 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
       weddingId = await createWeddingInDb(user.id, name, date);
       setCreatedWeddingId(weddingId);
 
-      // Process files in sequential batches of 5. Each batch fully completes
-      // before the next starts. Failures within a batch are isolated so one bad
-      // file never freezes the whole upload.
+      // Lazily collect file references in batches of 5. Each access into the
+      // FileList only happens here (not at selection time), and only when that
+      // specific file is about to be processed — keeping iOS Safari from
+      // materializing every video file handle up front.
       const BATCH_SIZE = 5;
-      for (let batchStart = 0; batchStart < mediaFiles.length; batchStart += BATCH_SIZE) {
-        const batch = mediaFiles.slice(batchStart, batchStart + BATCH_SIZE);
-        setPrepStatus(`Uploading ${batchStart + 1}–${Math.min(batchStart + batch.length, mediaFiles.length)} of ${mediaFiles.length} files`);
+      const iterator = iterateSelections();
+      let batchIndex = 0;
+      let localSkipped = 0;
+      let localOversize = 0;
+
+      while (true) {
+        const batch: File[] = [];
+        for (let i = 0; i < BATCH_SIZE; i++) {
+          const next = iterator.next();
+          if (next.done) break;
+          const file = next.value;
+          // Validate at access time — this is when iOS finally hands us a real File.
+          if (!isSupportedMediaFile(file)) {
+            localSkipped += 1;
+            continue;
+          }
+          if (file.size > MAX_FILE_SIZE_BYTES) {
+            localOversize += 1;
+            continue;
+          }
+          batch.push(file);
+        }
+        if (batch.length === 0) {
+          // No valid files in this slice; check if iterator is exhausted.
+          const peek = iterator.next();
+          if (peek.done) break;
+          // Otherwise put the peeked file back into a single-item batch path.
+          if (isSupportedMediaFile(peek.value) && peek.value.size <= MAX_FILE_SIZE_BYTES) {
+            batch.push(peek.value);
+          } else {
+            if (!isSupportedMediaFile(peek.value)) localSkipped += 1;
+            else localOversize += 1;
+            continue;
+          }
+        }
+
+        const startIdx = batchIndex * BATCH_SIZE;
+        setPrepStatus(`Uploading ${startIdx + 1}–${startIdx + batch.length} of ${totalSelected} files`);
 
         const results = await Promise.allSettled(
           batch.map((file, idx) =>
             withTimeout(
-              prepareAndQueue(weddingId, file, batchStart + idx),
+              prepareAndQueue(weddingId, file, startIdx + idx),
               PER_PREVIEW_TIMEOUT_MS,
               `Preview generation timed out for ${file.name}`,
             ),
@@ -176,9 +212,13 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
           }
           prepared += 1;
         });
-        setPrepProgress((prepared / mediaFiles.length) * 100);
-        setPrepStatus(`Uploading ${Math.min(prepared, mediaFiles.length)} of ${mediaFiles.length} files`);
+        batchIndex += 1;
+        setPrepProgress((prepared / totalSelected) * 100);
+        setPrepStatus(`Uploading ${Math.min(prepared, totalSelected)} of ${totalSelected} files`);
       }
+
+      setSkippedCount(localSkipped);
+      setOversizeCount(localOversize);
 
       if (prepared - failed === 0) throw new Error('All files failed to prepare');
 
