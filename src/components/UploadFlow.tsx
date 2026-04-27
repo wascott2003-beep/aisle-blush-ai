@@ -275,49 +275,61 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
             <h1 className="text-3xl font-heading font-semibold text-foreground">Upload Media</h1>
             <p className="text-muted-foreground font-body mt-1">{name} · {new Date(date).toLocaleDateString()}</p>
           </div>
-          <label className="block border-2 border-dashed border-border rounded-xl p-12 text-center cursor-pointer hover:border-rose-gold/50 transition-colors bg-card">
-            <input type="file" multiple accept="image/*,video/*" onChange={handleFileChange} className="hidden" disabled={isProcessingSelection} />
-            <Upload className={`w-10 h-10 text-rose-gold/50 mx-auto mb-3 ${isProcessingSelection ? 'animate-pulse' : ''}`} />
-            <p className="font-body text-foreground font-medium">
-              {isProcessingSelection
-                ? `Reading ${selectionProgress.done} of ${selectionProgress.total} files…`
-                : files.length > 0
-                  ? `${mediaFiles.length} supported file${mediaFiles.length === 1 ? '' : 's'} selected`
-                  : 'Drop files or click to browse'}
-            </p>
-            <p className="text-xs text-muted-foreground font-body mt-1">Photos and videos · originals upload in the background</p>
-            {!isProcessingSelection && skippedCount > 0 && (
-              <p className="text-xs text-muted-foreground font-body mt-1">{skippedCount} unsupported file{skippedCount === 1 ? '' : 's'} will be skipped</p>
-            )}
-            {!isProcessingSelection && oversizeCount > 0 && (
-              <p className="text-xs text-rose-gold font-body mt-1">{oversizeCount} file{oversizeCount === 1 ? '' : 's'} over 500MB will be skipped</p>
-            )}
-          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-rose-gold/50 transition-colors bg-card">
+              <input
+                ref={photoInputRef}
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handlePhotoChange}
+                className="hidden"
+              />
+              <ImageIcon className="w-8 h-8 text-rose-gold/60 mx-auto mb-2" />
+              <p className="font-body text-foreground font-medium text-sm">Upload Photos</p>
+              <p className="text-xs text-muted-foreground font-body mt-1">
+                {photoCount > 0 ? `${photoCount} selected` : 'Choose images'}
+              </p>
+            </label>
+            <label className="block border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-rose-gold/50 transition-colors bg-card">
+              <input
+                ref={videoInputRef}
+                type="file"
+                multiple
+                accept="video/*"
+                onChange={handleVideoChange}
+                className="hidden"
+              />
+              <VideoIcon className="w-8 h-8 text-rose-gold/60 mx-auto mb-2" />
+              <p className="font-body text-foreground font-medium text-sm">Upload Videos</p>
+              <p className="text-xs text-muted-foreground font-body mt-1">
+                {videoCount > 0 ? `${videoCount} selected` : 'Choose videos'}
+              </p>
+            </label>
+          </div>
+          <p className="text-xs text-muted-foreground font-body text-center">
+            Files are read one-by-one as they upload — keeps mobile snappy. Originals upload in the background.
+          </p>
+          {totalSelected > 0 && (
+            <div className="flex items-center justify-between rounded-lg bg-card border border-border px-4 py-3">
+              <p className="text-sm font-body text-foreground">
+                {totalSelected} file{totalSelected === 1 ? '' : 's'} ready to upload
+              </p>
+              <button
+                onClick={clearSelection}
+                className="text-xs font-body text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          )}
           {errorMessage && (
             <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm font-body text-foreground">
               {errorMessage}
             </div>
           )}
-          {files.length > 0 && (
-            <div className="grid grid-cols-5 gap-1.5">
-              {previewUrls.map(({ file, url }, i) => (
-                <div key={`${file.name}-${i}`} className="aspect-square rounded-lg overflow-hidden bg-accent border border-border">
-                  {file.type.startsWith('image/') ? (
-                    <img src={url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <video src={url} className="w-full h-full object-cover" />
-                  )}
-                </div>
-              ))}
-              {files.length > 10 && (
-                <div className="aspect-square rounded-lg bg-accent border border-border flex items-center justify-center">
-                  <span className="text-xs text-muted-foreground font-body">+{files.length - 10}</span>
-                </div>
-              )}
-            </div>
-          )}
-          <Button onClick={handleUploadClick} disabled={mediaFiles.length === 0 || isProcessingSelection} className="w-full h-12 gradient-rose text-primary-foreground font-body font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
-            {isProcessingSelection ? 'Reading files…' : 'Upload to Unsorted'}
+          <Button onClick={handleUploadClick} disabled={totalSelected === 0} className="w-full h-12 gradient-rose text-primary-foreground font-body font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
+            Upload to Unsorted
           </Button>
         </motion.div>
       )}
