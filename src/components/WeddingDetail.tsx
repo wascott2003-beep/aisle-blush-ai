@@ -129,7 +129,7 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
             {currentFolder.items.map((item, i) => {
               const hasRealThumb = item.thumbnail && item.thumbnail !== '/placeholder.svg';
-              const otherFolders = ALL_FOLDERS.filter((f) => f !== currentFolder.name);
+              const otherFolders = allFolderNames.filter((f) => f !== currentFolder.name);
               return (
                 <motion.div
                   key={item.id}
