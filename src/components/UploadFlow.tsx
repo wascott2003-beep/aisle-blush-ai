@@ -256,7 +256,7 @@ const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName
       setStep('done');
     } catch (err) {
       console.error('Upload prep error:', err);
-      if (weddingId && prepared - failed === 0) {
+      if (weddingId && !isAddMore && prepared - failed === 0) {
         try {
           await deleteWeddingById(weddingId);
         } catch (cleanupError) {
