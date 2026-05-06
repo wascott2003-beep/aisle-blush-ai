@@ -300,8 +300,8 @@ const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName
       {step === 'upload' && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
           <div>
-            <h1 className="text-3xl font-heading font-semibold text-foreground">Upload Media</h1>
-            <p className="text-muted-foreground font-body mt-1">{name} · {new Date(date).toLocaleDateString()}</p>
+            <h1 className="text-3xl font-heading font-semibold text-foreground">{isAddMore ? 'Add More Media' : 'Upload Media'}</h1>
+            <p className="text-muted-foreground font-body mt-1">{isAddMore ? existingWeddingName : name} · {new Date(isAddMore ? existingWeddingDate! : date).toLocaleDateString()}</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <label className="block border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-rose-gold/50 transition-colors bg-card">
