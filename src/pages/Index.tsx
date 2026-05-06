@@ -22,6 +22,7 @@ const Index = () => {
   const [weddings, setWeddings] = useState<Wedding[]>([]);
   const [selectedWeddingId, setSelectedWeddingId] = useState<string | null>(null);
   const [showUpload, setShowUpload] = useState(false);
+  const [showAddMore, setShowAddMore] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [showReel, setShowReel] = useState(false);
   const [loading, setLoading] = useState(true);
