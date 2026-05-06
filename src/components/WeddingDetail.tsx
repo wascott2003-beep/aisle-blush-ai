@@ -317,6 +317,7 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
               )}
             </motion.div>
           );
+        })}
         {/* Add Folder card */}
           <motion.div
             initial={{ opacity: 0, y: 15 }}
