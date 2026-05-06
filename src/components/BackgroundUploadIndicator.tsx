@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CloudUpload, CheckCircle2, X, RotateCcw } from 'lucide-react';
+import { CloudUpload, CheckCircle2, X, RotateCcw, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   cancelUploadsForWedding,
@@ -16,6 +16,7 @@ const BackgroundUploadIndicator = ({ weddingId }: BackgroundUploadIndicatorProps
   const [pending, setPending] = useState(0);
   const [completed, setCompleted] = useState(0);
   const [total, setTotal] = useState(0);
+  const [failed, setFailed] = useState(0);
   const [canceled, setCanceled] = useState(0);
   const [showDone, setShowDone] = useState(false);
   const [prevPending, setPrevPending] = useState(0);
@@ -23,6 +24,7 @@ const BackgroundUploadIndicator = ({ weddingId }: BackgroundUploadIndicatorProps
   useEffect(() => {
     return subscribeUploadQueue((s) => {
       setPending(s.pendingByWedding[weddingId] || 0);
+      setFailed(s.failed);
       setCompleted(s.completed);
       setTotal(s.total);
       setCanceled(s.canceledByWedding[weddingId] || 0);
@@ -114,8 +116,17 @@ const BackgroundUploadIndicator = ({ weddingId }: BackgroundUploadIndicatorProps
           exit={{ opacity: 0, y: -8 }}
           className="flex items-center gap-2 rounded-full bg-card border border-border px-3 py-1.5 text-xs font-body text-muted-foreground"
         >
-          <CheckCircle2 className="w-3.5 h-3.5 text-rose-gold" />
-          <span>All files saved at full quality.</span>
+          {failed > 0 ? (
+            <>
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+              <span>{failed} file{failed === 1 ? '' : 's'} failed to upload. Tap retry or re-add media.</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="w-3.5 h-3.5 text-rose-gold" />
+              <span>All files saved at full quality.</span>
+            </>
+          )}
         </motion.div>
       )}
     </AnimatePresence>

@@ -150,37 +150,58 @@ export function getCanceledCountForWedding(weddingId: string): number {
   return state.canceledByWedding[weddingId] || 0;
 }
 
-const BATCH_SIZE = 5;
+// Upload one file at a time to avoid overwhelming mobile connections.
+const BATCH_SIZE = 2;
+const MAX_RETRIES = 3;
+const RETRY_BASE_MS = 2000;
 
 async function processJob(job: QueueJob) {
   state.currentName = job.file.name;
   emit();
-  try {
-    const { storagePath } = await uploadMediaFile(
-      job.weddingId,
-      job.file,
-      job.folder,
-      job.ext,
-      'original',
-    );
-    await updateMediaItemStatus(job.mediaId, {
-      storage_path: storagePath,
-      upload_status: 'complete',
-    });
-    state.completed += 1;
-  } catch (err) {
-    // Isolated failure — log, mark row as failed, and keep going.
-    console.error('Background upload failed:', job.file.name, err);
+
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      if (attempt > 0) {
+        // Exponential back-off: 2s, 4s, 8s
+        const delay = RETRY_BASE_MS * Math.pow(2, attempt - 1);
+        console.log(`Retrying ${job.file.name} (attempt ${attempt + 1}) in ${delay}ms…`);
+        await new Promise((r) => setTimeout(r, delay));
+        state.currentName = `${job.file.name} (retry ${attempt})`;
+        emit();
+      }
+
+      const { storagePath } = await uploadMediaFile(
+        job.weddingId,
+        job.file,
+        job.folder,
+        job.ext,
+        'original',
+      );
+      await updateMediaItemStatus(job.mediaId, {
+        storage_path: storagePath,
+        upload_status: 'complete',
+      });
+      state.completed += 1;
+      lastErr = null;
+      break;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+
+  if (lastErr) {
+    console.error('Background upload failed after retries:', job.file.name, lastErr);
     state.failed += 1;
     try {
       await updateMediaItemStatus(job.mediaId, { upload_status: 'failed' });
     } catch {
       /* noop */
     }
-  } finally {
-    bumpWedding(job.weddingId, -1);
-    emit();
   }
+
+  bumpWedding(job.weddingId, -1);
+  emit();
 }
 
 async function runLoop() {
@@ -189,11 +210,9 @@ async function runLoop() {
   state.status = 'uploading';
   emit();
 
-  // Sequential batches of 5: each batch fully completes (Promise.allSettled
-  // so a single failure can't freeze the whole queue) before the next starts.
   while (queue.length > 0) {
     const batch = queue.splice(0, BATCH_SIZE);
-    state.currentName = `${batch.length} files`;
+    state.currentName = batch.length === 1 ? batch[0].file.name : `${batch.length} files`;
     state.currentProgress = 0;
     emit();
     await Promise.allSettled(batch.map(processJob));
