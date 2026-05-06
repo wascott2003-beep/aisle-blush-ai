@@ -33,7 +33,7 @@ interface UploadFlowProps {
 const UNSORTED_FOLDER = 'Unsorted';
 // Cap individual file size at 500MB (Supabase storage default upper limit)
 const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024;
-const VIDEO_METADATA_TIMEOUT_MS = 8000;
+
 const PER_PREVIEW_TIMEOUT_MS = 30 * 1000;
 // Soft limit — warn users when uploading exceptionally large batches.
 const LARGE_BATCH_WARNING_THRESHOLD = 200;
