@@ -206,3 +206,22 @@ export async function updateMediaItemFolder(id: string, folder: string) {
   const { error } = await supabase.from('media_items').update({ folder }).eq('id', id);
   if (error) throw error;
 }
+
+export async function createCustomFolder(weddingId: string, name: string): Promise<string> {
+  const { data, error } = await supabase
+    .from('wedding_folders')
+    .insert({ wedding_id: weddingId, name, icon: 'FolderOpen' })
+    .select('id')
+    .single();
+  if (error) throw error;
+  return data.id;
+}
+
+export async function deleteCustomFolder(weddingId: string, folderName: string) {
+  const { error } = await supabase
+    .from('wedding_folders')
+    .delete()
+    .eq('wedding_id', weddingId)
+    .eq('name', folderName);
+  if (error) throw error;
+}
