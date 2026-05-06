@@ -121,30 +121,59 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
             {currentFolder.items.map((item, i) => {
               const hasRealThumb = item.thumbnail && item.thumbnail !== '/placeholder.svg';
+              const otherFolders = ALL_FOLDERS.filter((f) => f !== currentFolder.name);
               return (
                 <motion.div
                   key={item.id}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: Math.min(i * 0.02, 0.5) }}
-                  onClick={() => setViewingItem(item)}
-                  className="aspect-square rounded-lg bg-accent border border-border relative overflow-hidden hover:border-rose-gold-light/60 transition-colors cursor-pointer"
+                  className="aspect-square rounded-lg bg-accent border border-border relative overflow-hidden hover:border-rose-gold-light/60 transition-colors cursor-pointer group"
                 >
-                  {hasRealThumb ? (
-                    item.type === 'video' ? (
-                      <video src={item.thumbnail} className="w-full h-full object-cover" muted />
-                    ) : (
-                      <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
-                    )
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      {item.type === 'video' ? (
-                        <Film className="w-5 h-5 text-rose-gold/50" />
+                  {/* Thumbnail area — tap to view */}
+                  <div className="w-full h-full" onClick={() => setViewingItem(item)}>
+                    {hasRealThumb ? (
+                      item.type === 'video' ? (
+                        <video src={item.thumbnail} className="w-full h-full object-cover" muted />
                       ) : (
-                        <ImageIcon className="w-5 h-5 text-muted-foreground/40" />
-                      )}
-                    </div>
-                  )}
+                        <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
+                      )
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        {item.type === 'video' ? (
+                          <Film className="w-5 h-5 text-rose-gold/50" />
+                        ) : (
+                          <ImageIcon className="w-5 h-5 text-muted-foreground/40" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Move button — visible on hover / always visible on mobile */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute top-1 left-1 w-7 h-7 rounded-full bg-foreground/70 flex items-center justify-center opacity-0 group-hover:opacity-100 sm:opacity-0 active:opacity-100 transition-opacity z-10"
+                        aria-label="Move to folder"
+                      >
+                        <ArrowRightLeft className="w-3.5 h-3.5 text-background" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="min-w-[160px]">
+                      <p className="px-2 py-1.5 text-xs font-body text-muted-foreground">Move to…</p>
+                      {otherFolders.map((folder) => (
+                        <DropdownMenuItem
+                          key={folder}
+                          onClick={() => handleMove(item.id, folder)}
+                          className="font-body text-sm cursor-pointer"
+                        >
+                          {folder}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
                   {item.type === 'video' && (
                     <span className="absolute bottom-1 right-1 text-[10px] bg-foreground/70 text-background px-1 rounded font-body">
                       VID
