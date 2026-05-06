@@ -97,7 +97,27 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
     }
   };
 
-  if (currentFolder && openFolder) {
+  const handleAddFolder = async () => {
+    const trimmed = newFolderName.trim();
+    if (!trimmed) return;
+    if (allFolderNames.includes(trimmed)) {
+      toast({ title: 'Folder already exists', variant: 'destructive' });
+      return;
+    }
+    setAddingFolder(true);
+    try {
+      await createCustomFolder(wedding.id, trimmed);
+      toast({ title: `"${trimmed}" folder created` });
+      setNewFolderName('');
+      setShowAddFolder(false);
+      await onRefresh?.();
+    } catch (e) {
+      toast({ title: 'Could not create folder', variant: 'destructive' });
+    } finally {
+      setAddingFolder(false);
+    }
+  };
+
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <AnimatePresence>
