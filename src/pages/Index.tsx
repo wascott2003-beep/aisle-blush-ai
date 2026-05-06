@@ -128,6 +128,7 @@ const Index = () => {
     );
   }
 
+  if (showReview && selectedWedding) {
     return (
       <>
         <AppNav currentPage={page} onNavigate={(p) => { setPage(p); setShowReview(false); setSelectedWeddingId(null); }} onLogout={handleLogout} />
