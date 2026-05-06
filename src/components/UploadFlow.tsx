@@ -28,6 +28,10 @@ import { enqueueUpload } from '@/lib/upload-queue';
 interface UploadFlowProps {
   onBack: () => void;
   onComplete: (weddingId?: string) => void;
+  /** When provided, skip wedding creation and upload directly to this wedding */
+  existingWeddingId?: string;
+  existingWeddingName?: string;
+  existingWeddingDate?: string;
 }
 
 const UNSORTED_FOLDER = 'Unsorted';
@@ -38,8 +42,9 @@ const PER_PREVIEW_TIMEOUT_MS = 30 * 1000;
 // Soft limit — warn users when uploading exceptionally large batches.
 const LARGE_BATCH_WARNING_THRESHOLD = 200;
 
-const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
-  const [step, setStep] = useState<'info' | 'upload' | 'preparing' | 'done'>('info');
+const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName, existingWeddingDate }: UploadFlowProps) => {
+  const isAddMore = !!existingWeddingId;
+  const [step, setStep] = useState<'info' | 'upload' | 'preparing' | 'done'>(isAddMore ? 'upload' : 'info');
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
   // Lazy: hold the raw FileList(s) without iterating. iOS Safari materializes
