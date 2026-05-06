@@ -1,28 +1,37 @@
 // Generates a JPEG poster frame from a video file for instant thumbnails.
-const POSTER_TIMEOUT_MS = 8000;
+const POSTER_TIMEOUT_MS = 12000;
 const POSTER_MAX_DIM = 720;
 const POSTER_QUALITY = 0.72;
 const POSTER_SEEK_SECONDS = 1;
 
-export async function generateVideoPoster(file: File): Promise<Blob | null> {
+/**
+ * Extract duration AND poster from a single <video> load so iOS only
+ * materialises the file once. Returns both in one pass to avoid the
+ * browser freeze that happened when two video elements were created per file.
+ */
+export async function extractVideoMeta(
+  file: File,
+): Promise<{ duration: number | null; poster: Blob | null }> {
   return new Promise((resolve) => {
     const video = document.createElement('video');
     const url = URL.createObjectURL(file);
     let settled = false;
+    let duration: number | null = null;
 
-    const finish = (value: Blob | null) => {
+    const finish = (poster: Blob | null) => {
       if (settled) return;
       settled = true;
       URL.revokeObjectURL(url);
-      resolve(value);
+      resolve({ duration, poster });
     };
 
     video.preload = 'metadata';
     video.muted = true;
     video.playsInline = true;
-    video.crossOrigin = 'anonymous';
+    // Don't set crossOrigin — file is a local blob URL.
 
     video.onloadedmetadata = () => {
+      duration = Number.isFinite(video.duration) ? video.duration : null;
       const target = Math.min(POSTER_SEEK_SECONDS, Math.max(0, (video.duration || 0) - 0.1));
       try {
         video.currentTime = target;
@@ -55,6 +64,12 @@ export async function generateVideoPoster(file: File): Promise<Blob | null> {
 
     window.setTimeout(() => finish(null), POSTER_TIMEOUT_MS);
   });
+}
+
+/** @deprecated – use extractVideoMeta instead */
+export async function generateVideoPoster(file: File): Promise<Blob | null> {
+  const { poster } = await extractVideoMeta(file);
+  return poster;
 }
 
 // Downscale a photo to a smaller preview JPEG so the grid loads instantly.
