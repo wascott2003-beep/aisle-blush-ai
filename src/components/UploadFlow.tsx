@@ -140,7 +140,7 @@ const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName
     setFailedCount(0);
     setFlaggedCount(0);
 
-    let weddingId: string | null = null;
+    let weddingId: string | null = existingWeddingId || null;
     let prepared = 0;
     let flagged = 0;
     let failed = 0;
@@ -151,7 +151,9 @@ const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName
       } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      weddingId = await createWeddingInDb(user.id, name, date);
+      if (!weddingId) {
+        weddingId = await createWeddingInDb(user.id, name, date);
+      }
       setCreatedWeddingId(weddingId);
 
       // Process files one at a time for videos (they create heavy <video>
