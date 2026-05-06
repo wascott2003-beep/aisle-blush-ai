@@ -22,6 +22,7 @@ const Index = () => {
   const [weddings, setWeddings] = useState<Wedding[]>([]);
   const [selectedWeddingId, setSelectedWeddingId] = useState<string | null>(null);
   const [showUpload, setShowUpload] = useState(false);
+  const [showAddMore, setShowAddMore] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [showReel, setShowReel] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -109,6 +110,24 @@ const Index = () => {
     );
   }
 
+  if (showAddMore && selectedWedding) {
+    return (
+      <>
+        <AppNav currentPage={page} onNavigate={(p) => { setPage(p); setShowAddMore(false); setSelectedWeddingId(null); }} onLogout={handleLogout} />
+        <UploadFlow
+          existingWeddingId={selectedWedding.id}
+          existingWeddingName={selectedWedding.name}
+          existingWeddingDate={selectedWedding.date}
+          onBack={() => setShowAddMore(false)}
+          onComplete={async () => {
+            await loadWeddings();
+            setShowAddMore(false);
+          }}
+        />
+      </>
+    );
+  }
+
   if (showReview && selectedWedding) {
     return (
       <>
@@ -148,6 +167,7 @@ const Index = () => {
           onBack={() => setSelectedWeddingId(null)}
           onReview={() => setShowReview(true)}
           onCreateReel={() => setShowReel(true)}
+          onAddMore={() => setShowAddMore(true)}
           onRefresh={loadWeddings}
           onDeleteItem={async (folderName, itemId) => {
             await deleteMediaItem(itemId);

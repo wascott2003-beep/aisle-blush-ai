@@ -28,6 +28,10 @@ import { enqueueUpload } from '@/lib/upload-queue';
 interface UploadFlowProps {
   onBack: () => void;
   onComplete: (weddingId?: string) => void;
+  /** When provided, skip wedding creation and upload directly to this wedding */
+  existingWeddingId?: string;
+  existingWeddingName?: string;
+  existingWeddingDate?: string;
 }
 
 const UNSORTED_FOLDER = 'Unsorted';
@@ -38,8 +42,9 @@ const PER_PREVIEW_TIMEOUT_MS = 30 * 1000;
 // Soft limit — warn users when uploading exceptionally large batches.
 const LARGE_BATCH_WARNING_THRESHOLD = 200;
 
-const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
-  const [step, setStep] = useState<'info' | 'upload' | 'preparing' | 'done'>('info');
+const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName, existingWeddingDate }: UploadFlowProps) => {
+  const isAddMore = !!existingWeddingId;
+  const [step, setStep] = useState<'info' | 'upload' | 'preparing' | 'done'>(isAddMore ? 'upload' : 'info');
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
   // Lazy: hold the raw FileList(s) without iterating. iOS Safari materializes
@@ -135,7 +140,7 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
     setFailedCount(0);
     setFlaggedCount(0);
 
-    let weddingId: string | null = null;
+    let weddingId: string | null = existingWeddingId || null;
     let prepared = 0;
     let flagged = 0;
     let failed = 0;
@@ -146,7 +151,9 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
       } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      weddingId = await createWeddingInDb(user.id, name, date);
+      if (!weddingId) {
+        weddingId = await createWeddingInDb(user.id, name, date);
+      }
       setCreatedWeddingId(weddingId);
 
       // Process files one at a time for videos (they create heavy <video>
@@ -249,7 +256,7 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
       setStep('done');
     } catch (err) {
       console.error('Upload prep error:', err);
-      if (weddingId && prepared - failed === 0) {
+      if (weddingId && !isAddMore && prepared - failed === 0) {
         try {
           await deleteWeddingById(weddingId);
         } catch (cleanupError) {
@@ -293,8 +300,8 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
       {step === 'upload' && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
           <div>
-            <h1 className="text-3xl font-heading font-semibold text-foreground">Upload Media</h1>
-            <p className="text-muted-foreground font-body mt-1">{name} · {new Date(date).toLocaleDateString()}</p>
+            <h1 className="text-3xl font-heading font-semibold text-foreground">{isAddMore ? 'Add More Media' : 'Upload Media'}</h1>
+            <p className="text-muted-foreground font-body mt-1">{isAddMore ? existingWeddingName : name} · {new Date(isAddMore ? existingWeddingDate! : date).toLocaleDateString()}</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <label className="block border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-rose-gold/50 transition-colors bg-card">

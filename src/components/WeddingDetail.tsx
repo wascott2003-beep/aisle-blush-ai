@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Sparkles, Heart, Camera, PartyPopper, Gem, FolderOpen, Inbox, AlertTriangle, Image as ImageIcon, Film, Clapperboard, Download, Loader2, ArrowRightLeft, Plus } from 'lucide-react';
+import { ArrowLeft, Sparkles, Heart, Camera, PartyPopper, Gem, FolderOpen, Inbox, AlertTriangle, Image as ImageIcon, Film, Clapperboard, Download, Loader2, ArrowRightLeft, Plus, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -28,9 +28,10 @@ interface WeddingDetailProps {
   onUpdateVendors?: (vendors: Vendor[]) => void;
   onCreateReel?: () => void;
   onRefresh?: () => void | Promise<void>;
+  onAddMore?: () => void;
 }
 
-const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendors, onCreateReel, onRefresh }: WeddingDetailProps) => {
+const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendors, onCreateReel, onRefresh, onAddMore }: WeddingDetailProps) => {
   const [openFolder, setOpenFolder] = useState<MediaFolder | null>(null);
   const [viewingItem, setViewingItem] = useState<MediaItem | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -236,6 +237,14 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={onAddMore}
+            variant="outline"
+            className="border-rose-gold text-rose-gold hover:bg-accent font-body"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Add More
+          </Button>
           <SortFootageButton
             weddingId={wedding.id}
             unsortedCount={wedding.folders.find((f) => f.name === 'Unsorted')?.items.length || 0}
