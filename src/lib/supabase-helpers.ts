@@ -94,15 +94,11 @@ export async function fetchWeddings(userId: string): Promise<Wedding[]> {
 
   const result: Wedding[] = [];
   for (const w of weddings) {
-    const { data: media } = await supabase
-      .from('media_items')
-      .select('*')
-      .eq('wedding_id', w.id);
-
-    const { data: vendors } = await supabase
-      .from('vendors')
-      .select('*')
-      .eq('wedding_id', w.id);
+    const [{ data: media }, { data: vendors }, { data: customFolders }] = await Promise.all([
+      supabase.from('media_items').select('*').eq('wedding_id', w.id),
+      supabase.from('vendors').select('*').eq('wedding_id', w.id),
+      supabase.from('wedding_folders').select('*').eq('wedding_id', w.id).order('created_at', { ascending: true }),
+    ]);
 
     const items: MediaItem[] = (media || []).map((m) => {
       const previewPath = (m as { preview_storage_path?: string | null }).preview_storage_path;
@@ -120,11 +116,21 @@ export async function fetchWeddings(userId: string): Promise<Wedding[]> {
       };
     });
 
+    // Preset folders
     const folders = FOLDER_NAMES.map((fn, i) => ({
       name: fn,
       icon: FOLDER_ICONS[i],
       items: items.filter((it) => it.folder === fn),
     }));
+
+    // Append custom folders
+    for (const cf of customFolders || []) {
+      folders.push({
+        name: cf.name,
+        icon: cf.icon || 'FolderOpen',
+        items: items.filter((it) => it.folder === cf.name),
+      });
+    }
 
     // Show "Unsorted" first, but only when it actually has items.
     const unsortedItems = items.filter((it) => it.folder === UNSORTED_FOLDER);
