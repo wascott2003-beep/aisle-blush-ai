@@ -110,7 +110,24 @@ const Index = () => {
     );
   }
 
-  if (showReview && selectedWedding) {
+  if (showAddMore && selectedWedding) {
+    return (
+      <>
+        <AppNav currentPage={page} onNavigate={(p) => { setPage(p); setShowAddMore(false); setSelectedWeddingId(null); }} onLogout={handleLogout} />
+        <UploadFlow
+          existingWeddingId={selectedWedding.id}
+          existingWeddingName={selectedWedding.name}
+          existingWeddingDate={selectedWedding.date}
+          onBack={() => setShowAddMore(false)}
+          onComplete={async () => {
+            await loadWeddings();
+            setShowAddMore(false);
+          }}
+        />
+      </>
+    );
+  }
+
     return (
       <>
         <AppNav currentPage={page} onNavigate={(p) => { setPage(p); setShowReview(false); setSelectedWeddingId(null); }} onLogout={handleLogout} />
