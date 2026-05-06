@@ -28,6 +28,7 @@ interface WeddingDetailProps {
   onUpdateVendors?: (vendors: Vendor[]) => void;
   onCreateReel?: () => void;
   onRefresh?: () => void | Promise<void>;
+  onAddMore?: () => void;
 }
 
 const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendors, onCreateReel, onRefresh }: WeddingDetailProps) => {
