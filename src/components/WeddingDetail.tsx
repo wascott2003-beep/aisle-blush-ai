@@ -237,6 +237,14 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={onAddMore}
+            variant="outline"
+            className="border-rose-gold text-rose-gold hover:bg-accent font-body"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Add More
+          </Button>
           <SortFootageButton
             weddingId={wedding.id}
             unsortedCount={wedding.folders.find((f) => f.name === 'Unsorted')?.items.length || 0}
