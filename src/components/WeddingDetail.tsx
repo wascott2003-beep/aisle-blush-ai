@@ -297,8 +297,46 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
               )}
             </motion.div>
           );
-        })}
-      </div>
+        {/* Add Folder card */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: wedding.folders.length * 0.08 }}
+            onClick={() => setShowAddFolder(true)}
+            className="bg-card rounded-xl border-2 border-dashed border-border p-6 hover:border-rose-gold-light/40 transition-all duration-300 cursor-pointer flex flex-col items-center justify-center min-h-[140px]"
+          >
+            <Plus className="w-8 h-8 text-muted-foreground/50 mb-2" />
+            <p className="font-body text-sm text-muted-foreground">Add Folder</p>
+          </motion.div>
+        </div>
+
+      {/* Add Folder Dialog */}
+      <Dialog open={showAddFolder} onOpenChange={setShowAddFolder}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-heading">Add Custom Folder</DialogTitle>
+          </DialogHeader>
+          <Input
+            placeholder="e.g. First Look, Speeches, Getting Ready B-Roll"
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            className="font-body"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && newFolderName.trim()) handleAddFolder();
+            }}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddFolder(false)} className="font-body">Cancel</Button>
+            <Button
+              onClick={handleAddFolder}
+              disabled={!newFolderName.trim() || addingFolder}
+              className="gradient-rose text-primary-foreground font-body"
+            >
+              {addingFolder ? 'Adding…' : 'Add Folder'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Vendors Section */}
       <VendorSection
