@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Sparkles, Heart, Camera, PartyPopper, Gem, FolderOpen, Inbox, AlertTriangle, Image as ImageIcon, Film, Clapperboard, Download, Loader2 } from 'lucide-react';
+import { ArrowLeft, Sparkles, Heart, Camera, PartyPopper, Gem, FolderOpen, Inbox, AlertTriangle, Image as ImageIcon, Film, Clapperboard, Download, Loader2, ArrowRightLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Wedding, MediaFolder, MediaItem, Vendor } from '@/lib/types';
 import MediaViewer from '@/components/MediaViewer';
 import VendorSection from '@/components/VendorSection';
 import BackgroundUploadIndicator from '@/components/BackgroundUploadIndicator';
 import SortFootageButton from '@/components/SortFootageButton';
 import { supabase } from '@/integrations/supabase/client';
+import { updateMediaItemFolder } from '@/lib/supabase-helpers';
 import { toast } from '@/hooks/use-toast';
+
+const ALL_FOLDERS = ['Getting Ready', 'Ceremony', 'Portraits', 'Reception', 'Details', 'Miscellaneous', 'Unsorted'];
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Sparkles, Heart, Camera, PartyPopper, Gem, FolderOpen, Inbox,
@@ -75,6 +79,16 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
     }
   };
 
+  const handleMove = async (itemId: string, targetFolder: string) => {
+    try {
+      await updateMediaItemFolder(itemId, targetFolder);
+      toast({ title: `Moved to ${targetFolder}` });
+      await onRefresh?.();
+    } catch (e) {
+      toast({ title: 'Move failed', variant: 'destructive' });
+    }
+  };
+
   if (currentFolder && openFolder) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -107,30 +121,59 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
             {currentFolder.items.map((item, i) => {
               const hasRealThumb = item.thumbnail && item.thumbnail !== '/placeholder.svg';
+              const otherFolders = ALL_FOLDERS.filter((f) => f !== currentFolder.name);
               return (
                 <motion.div
                   key={item.id}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: Math.min(i * 0.02, 0.5) }}
-                  onClick={() => setViewingItem(item)}
-                  className="aspect-square rounded-lg bg-accent border border-border relative overflow-hidden hover:border-rose-gold-light/60 transition-colors cursor-pointer"
+                  className="aspect-square rounded-lg bg-accent border border-border relative overflow-hidden hover:border-rose-gold-light/60 transition-colors cursor-pointer group"
                 >
-                  {hasRealThumb ? (
-                    item.type === 'video' ? (
-                      <video src={item.thumbnail} className="w-full h-full object-cover" muted />
-                    ) : (
-                      <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
-                    )
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      {item.type === 'video' ? (
-                        <Film className="w-5 h-5 text-rose-gold/50" />
+                  {/* Thumbnail area — tap to view */}
+                  <div className="w-full h-full" onClick={() => setViewingItem(item)}>
+                    {hasRealThumb ? (
+                      item.type === 'video' ? (
+                        <video src={item.thumbnail} className="w-full h-full object-cover" muted />
                       ) : (
-                        <ImageIcon className="w-5 h-5 text-muted-foreground/40" />
-                      )}
-                    </div>
-                  )}
+                        <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
+                      )
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        {item.type === 'video' ? (
+                          <Film className="w-5 h-5 text-rose-gold/50" />
+                        ) : (
+                          <ImageIcon className="w-5 h-5 text-muted-foreground/40" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Move button — visible on hover / always visible on mobile */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute top-1 left-1 w-7 h-7 rounded-full bg-foreground/70 flex items-center justify-center opacity-0 group-hover:opacity-100 sm:opacity-0 active:opacity-100 transition-opacity z-10"
+                        aria-label="Move to folder"
+                      >
+                        <ArrowRightLeft className="w-3.5 h-3.5 text-background" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="min-w-[160px]">
+                      <p className="px-2 py-1.5 text-xs font-body text-muted-foreground">Move to…</p>
+                      {otherFolders.map((folder) => (
+                        <DropdownMenuItem
+                          key={folder}
+                          onClick={() => handleMove(item.id, folder)}
+                          className="font-body text-sm cursor-pointer"
+                        >
+                          {folder}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
                   {item.type === 'video' && (
                     <span className="absolute bottom-1 right-1 text-[10px] bg-foreground/70 text-background px-1 rounded font-body">
                       VID
