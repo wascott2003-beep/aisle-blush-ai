@@ -149,71 +149,92 @@ const UploadFlow = ({ onBack, onComplete }: UploadFlowProps) => {
       weddingId = await createWeddingInDb(user.id, name, date);
       setCreatedWeddingId(weddingId);
 
-      // Lazily collect file references in batches of 5. Each access into the
-      // FileList only happens here (not at selection time), and only when that
-      // specific file is about to be processed — keeping iOS Safari from
-      // materializing every video file handle up front.
-      const BATCH_SIZE = 5;
+      // Process files one at a time for videos (they create heavy <video>
+      // elements that freeze iOS if parallelised) and in small batches for
+      // photos. This keeps the browser responsive on mobile.
+      const PHOTO_BATCH_SIZE = 5;
       const iterator = iterateSelections();
-      let batchIndex = 0;
       let localSkipped = 0;
       let localOversize = 0;
 
+      // Collect validated files lazily
       while (true) {
-        const batch: File[] = [];
-        for (let i = 0; i < BATCH_SIZE; i++) {
-          const next = iterator.next();
-          if (next.done) break;
-          const file = next.value;
-          // Validate at access time — this is when iOS finally hands us a real File.
-          if (!isSupportedMediaFile(file)) {
-            localSkipped += 1;
-            continue;
-          }
-          if (file.size > MAX_FILE_SIZE_BYTES) {
-            localOversize += 1;
-            continue;
-          }
-          batch.push(file);
-        }
-        if (batch.length === 0) {
-          // No valid files in this slice; check if iterator is exhausted.
-          const peek = iterator.next();
-          if (peek.done) break;
-          // Otherwise put the peeked file back into a single-item batch path.
-          if (isSupportedMediaFile(peek.value) && peek.value.size <= MAX_FILE_SIZE_BYTES) {
-            batch.push(peek.value);
-          } else {
-            if (!isSupportedMediaFile(peek.value)) localSkipped += 1;
-            else localOversize += 1;
-            continue;
-          }
-        }
+        const next = iterator.next();
+        if (next.done) break;
+        const file = next.value;
 
-        const startIdx = batchIndex * BATCH_SIZE;
-        setPrepStatus(`Uploading ${startIdx + 1}–${startIdx + batch.length} of ${totalSelected} files`);
+        if (!isSupportedMediaFile(file)) { localSkipped += 1; prepared += 1; continue; }
+        if (file.size > MAX_FILE_SIZE_BYTES) { localOversize += 1; prepared += 1; continue; }
 
-        const results = await Promise.allSettled(
-          batch.map((file, idx) =>
-            withTimeout(
-              prepareAndQueue(weddingId, file, startIdx + idx),
+        const isVideo = file.type.startsWith('video/');
+
+        if (isVideo) {
+          // Videos: process ONE AT A TIME to avoid iOS freeze
+          setPrepStatus(`Processing video ${prepared + 1} of ${totalSelected}`);
+          try {
+            const result = await withTimeout(
+              prepareAndQueue(weddingId!, file, prepared),
               PER_PREVIEW_TIMEOUT_MS,
               `Preview generation timed out for ${file.name}`,
-            ),
-          ),
-        );
-
-        results.forEach((res, idx) => {
-          if (res.status === 'fulfilled') {
-            if (res.value.flagged) flagged += 1;
-          } else {
-            console.error('Failed to prepare file:', batch[idx].name, res.reason);
+            );
+            if (result.flagged) flagged += 1;
+          } catch (err) {
+            console.error('Failed to prepare file:', file.name, err);
             failed += 1;
           }
           prepared += 1;
-        });
-        batchIndex += 1;
-        setPrepProgress((prepared / totalSelected) * 100);
+          setPrepProgress((prepared / totalSelected) * 100);
+        } else {
+          // Photos: collect a small batch then process in parallel
+          const photoBatch: File[] = [file];
+          while (photoBatch.length < PHOTO_BATCH_SIZE) {
+            const peek = iterator.next();
+            if (peek.done) break;
+            if (!isSupportedMediaFile(peek.value)) { localSkipped += 1; prepared += 1; continue; }
+            if (peek.value.size > MAX_FILE_SIZE_BYTES) { localOversize += 1; prepared += 1; continue; }
+            if (peek.value.type.startsWith('video/')) {
+              // Put this video back by processing it in the next outer loop iteration.
+              // We can't "unget" from a generator, so process it inline now.
+              setPrepStatus(`Processing video ${prepared + 1} of ${totalSelected}`);
+              try {
+                const r = await withTimeout(
+                  prepareAndQueue(weddingId!, peek.value, prepared),
+                  PER_PREVIEW_TIMEOUT_MS,
+                  `Preview generation timed out for ${peek.value.name}`,
+                );
+                if (r.flagged) flagged += 1;
+              } catch (err) {
+                console.error('Failed to prepare file:', peek.value.name, err);
+                failed += 1;
+              }
+              prepared += 1;
+              setPrepProgress((prepared / totalSelected) * 100);
+              continue;
+            }
+            photoBatch.push(peek.value);
+          }
+
+          setPrepStatus(`Uploading ${prepared + 1}–${prepared + photoBatch.length} of ${totalSelected} files`);
+          const results = await Promise.allSettled(
+            photoBatch.map((f, idx) =>
+              withTimeout(
+                prepareAndQueue(weddingId!, f, prepared + idx),
+                PER_PREVIEW_TIMEOUT_MS,
+                `Preview generation timed out for ${f.name}`,
+              ),
+            ),
+          );
+          results.forEach((res, idx) => {
+            if (res.status === 'fulfilled') {
+              if (res.value.flagged) flagged += 1;
+            } else {
+              console.error('Failed to prepare file:', photoBatch[idx].name, res.reason);
+              failed += 1;
+            }
+            prepared += 1;
+          });
+          setPrepProgress((prepared / totalSelected) * 100);
+        }
         setPrepStatus(`Uploading ${Math.min(prepared, totalSelected)} of ${totalSelected} files`);
       }
 
