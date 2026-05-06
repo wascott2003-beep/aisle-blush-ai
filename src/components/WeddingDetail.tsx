@@ -79,6 +79,16 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
     }
   };
 
+  const handleMove = async (itemId: string, targetFolder: string) => {
+    try {
+      await updateMediaItemFolder(itemId, targetFolder);
+      toast({ title: `Moved to ${targetFolder}` });
+      await onRefresh?.();
+    } catch (e) {
+      toast({ title: 'Move failed', variant: 'destructive' });
+    }
+  };
+
   if (currentFolder && openFolder) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
