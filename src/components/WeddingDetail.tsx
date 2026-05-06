@@ -34,6 +34,12 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
   const [openFolder, setOpenFolder] = useState<MediaFolder | null>(null);
   const [viewingItem, setViewingItem] = useState<MediaItem | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [showAddFolder, setShowAddFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [addingFolder, setAddingFolder] = useState(false);
+
+  // Build the full list of folder names for move-to menu
+  const allFolderNames = wedding.folders.map((f) => f.name);
 
   const handleExport = async () => {
     if (exporting) return;
