@@ -116,8 +116,17 @@ const BackgroundUploadIndicator = ({ weddingId }: BackgroundUploadIndicatorProps
           exit={{ opacity: 0, y: -8 }}
           className="flex items-center gap-2 rounded-full bg-card border border-border px-3 py-1.5 text-xs font-body text-muted-foreground"
         >
-          <CheckCircle2 className="w-3.5 h-3.5 text-rose-gold" />
-          <span>All files saved at full quality.</span>
+          {failed > 0 ? (
+            <>
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+              <span>{failed} file{failed === 1 ? '' : 's'} failed to upload. Tap retry or re-add media.</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="w-3.5 h-3.5 text-rose-gold" />
+              <span>All files saved at full quality.</span>
+            </>
+          )}
         </motion.div>
       )}
     </AnimatePresence>
