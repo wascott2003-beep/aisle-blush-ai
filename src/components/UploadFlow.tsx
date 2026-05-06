@@ -507,27 +507,6 @@ function isSupportedMediaFile(file: File) {
   return file.type.startsWith('image/') || file.type.startsWith('video/');
 }
 
-function getVideoDuration(file: File): Promise<number | null> {
-  return new Promise((resolve) => {
-    const video = document.createElement('video');
-    const objectUrl = URL.createObjectURL(file);
-    let settled = false;
-
-    const finish = (value: number | null) => {
-      if (settled) return;
-      settled = true;
-      URL.revokeObjectURL(objectUrl);
-      resolve(value);
-    };
-
-    video.preload = 'metadata';
-    video.onloadedmetadata = () => finish(Number.isFinite(video.duration) ? video.duration : null);
-    video.onerror = () => finish(null);
-    video.src = objectUrl;
-
-    window.setTimeout(() => finish(null), VIDEO_METADATA_TIMEOUT_MS);
-  });
-}
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
   return Promise.race([
