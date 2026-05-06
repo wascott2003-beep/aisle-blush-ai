@@ -22,7 +22,7 @@ import {
   insertMediaItem,
   uploadMediaFile,
 } from '@/lib/supabase-helpers';
-import { generatePhotoPreview, generateVideoPoster } from '@/lib/poster-frame';
+import { generatePhotoPreview, extractVideoMeta } from '@/lib/poster-frame';
 import { enqueueUpload } from '@/lib/upload-queue';
 
 interface UploadFlowProps {
