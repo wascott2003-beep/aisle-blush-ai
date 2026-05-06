@@ -434,9 +434,11 @@ async function prepareAndQueue(weddingId: string, file: File, _fileIndex: number
   }
 
   if (isVideo) {
-    duration = await getVideoDuration(file);
+    // Single video load for both duration + poster (avoids double <video> element)
+    const meta = await extractVideoMeta(file).catch(() => ({ duration: null, poster: null }));
+    duration = meta.duration;
+    previewBlob = meta.poster;
     if (duration !== null && duration < 3) flagReason = 'short_clip';
-    previewBlob = await generateVideoPoster(file).catch(() => null);
   }
 
   // Upload the small preview first so the thumbnail is available immediately.
