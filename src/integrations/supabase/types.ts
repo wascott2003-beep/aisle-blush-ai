@@ -99,6 +99,30 @@ export type Database = {
           },
         ]
       }
+      wedding_folders: {
+        Row: {
+          created_at: string
+          icon: string
+          id: string
+          name: string
+          wedding_id: string
+        }
+        Insert: {
+          created_at?: string
+          icon?: string
+          id?: string
+          name: string
+          wedding_id: string
+        }
+        Update: {
+          created_at?: string
+          icon?: string
+          id?: string
+          name?: string
+          wedding_id?: string
+        }
+        Relationships: []
+      }
       weddings: {
         Row: {
           created_at: string

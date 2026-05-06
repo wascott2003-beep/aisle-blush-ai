@@ -1,18 +1,20 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Sparkles, Heart, Camera, PartyPopper, Gem, FolderOpen, Inbox, AlertTriangle, Image as ImageIcon, Film, Clapperboard, Download, Loader2, ArrowRightLeft } from 'lucide-react';
+import { ArrowLeft, Sparkles, Heart, Camera, PartyPopper, Gem, FolderOpen, Inbox, AlertTriangle, Image as ImageIcon, Film, Clapperboard, Download, Loader2, ArrowRightLeft, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Wedding, MediaFolder, MediaItem, Vendor } from '@/lib/types';
 import MediaViewer from '@/components/MediaViewer';
 import VendorSection from '@/components/VendorSection';
 import BackgroundUploadIndicator from '@/components/BackgroundUploadIndicator';
 import SortFootageButton from '@/components/SortFootageButton';
 import { supabase } from '@/integrations/supabase/client';
-import { updateMediaItemFolder } from '@/lib/supabase-helpers';
+import { updateMediaItemFolder, createCustomFolder } from '@/lib/supabase-helpers';
 import { toast } from '@/hooks/use-toast';
 
-const ALL_FOLDERS = ['Getting Ready', 'Ceremony', 'Portraits', 'Reception', 'Details', 'Miscellaneous', 'Unsorted'];
+const PRESET_FOLDERS = ['Getting Ready', 'Ceremony', 'Portraits', 'Reception', 'Details', 'Miscellaneous', 'Unsorted'];
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Sparkles, Heart, Camera, PartyPopper, Gem, FolderOpen, Inbox,
@@ -32,6 +34,12 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
   const [openFolder, setOpenFolder] = useState<MediaFolder | null>(null);
   const [viewingItem, setViewingItem] = useState<MediaItem | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [showAddFolder, setShowAddFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [addingFolder, setAddingFolder] = useState(false);
+
+  // Build the full list of folder names for move-to menu
+  const allFolderNames = wedding.folders.map((f) => f.name);
 
   const handleExport = async () => {
     if (exporting) return;
@@ -89,7 +97,27 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
     }
   };
 
-  if (currentFolder && openFolder) {
+  const handleAddFolder = async () => {
+    const trimmed = newFolderName.trim();
+    if (!trimmed) return;
+    if (allFolderNames.includes(trimmed)) {
+      toast({ title: 'Folder already exists', variant: 'destructive' });
+      return;
+    }
+    setAddingFolder(true);
+    try {
+      await createCustomFolder(wedding.id, trimmed);
+      toast({ title: `"${trimmed}" folder created` });
+      setNewFolderName('');
+      setShowAddFolder(false);
+      await onRefresh?.();
+    } catch (e) {
+      toast({ title: 'Could not create folder', variant: 'destructive' });
+    } finally {
+      setAddingFolder(false);
+    }
+  };
+
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <AnimatePresence>
@@ -121,7 +149,7 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
             {currentFolder.items.map((item, i) => {
               const hasRealThumb = item.thumbnail && item.thumbnail !== '/placeholder.svg';
-              const otherFolders = ALL_FOLDERS.filter((f) => f !== currentFolder.name);
+              const otherFolders = allFolderNames.filter((f) => f !== currentFolder.name);
               return (
                 <motion.div
                   key={item.id}
@@ -290,7 +318,46 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
             </motion.div>
           );
         })}
-      </div>
+        {/* Add Folder card */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: wedding.folders.length * 0.08 }}
+            onClick={() => setShowAddFolder(true)}
+            className="bg-card rounded-xl border-2 border-dashed border-border p-6 hover:border-rose-gold-light/40 transition-all duration-300 cursor-pointer flex flex-col items-center justify-center min-h-[140px]"
+          >
+            <Plus className="w-8 h-8 text-muted-foreground/50 mb-2" />
+            <p className="font-body text-sm text-muted-foreground">Add Folder</p>
+          </motion.div>
+        </div>
+
+      {/* Add Folder Dialog */}
+      <Dialog open={showAddFolder} onOpenChange={setShowAddFolder}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-heading">Add Custom Folder</DialogTitle>
+          </DialogHeader>
+          <Input
+            placeholder="e.g. First Look, Speeches, Getting Ready B-Roll"
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            className="font-body"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && newFolderName.trim()) handleAddFolder();
+            }}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddFolder(false)} className="font-body">Cancel</Button>
+            <Button
+              onClick={handleAddFolder}
+              disabled={!newFolderName.trim() || addingFolder}
+              className="gradient-rose text-primary-foreground font-body"
+            >
+              {addingFolder ? 'Adding…' : 'Add Folder'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Vendors Section */}
       <VendorSection
