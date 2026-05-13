@@ -7,7 +7,7 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const FOLDERS = ['Getting Ready', 'Ceremony', 'Portraits', 'Reception', 'Details', 'Miscellaneous'] as const;
+const DEFAULT_WEDDING_FOLDERS = ['Getting Ready', 'Ceremony', 'Portraits', 'Reception', 'Details', 'Miscellaneous'] as const;
 
 interface InputItem {
   id: string;
@@ -17,10 +17,10 @@ interface InputItem {
 
 interface OutputItem {
   id: string;
-  folder: typeof FOLDERS[number];
+  folder: string;
 }
 
-const SYSTEM_PROMPT = `You categorize wedding photos and video thumbnails into one of these folders:
+const WEDDING_PROMPT = `You categorize wedding photos and video thumbnails into one of these folders:
 - "Getting Ready": pre-ceremony prep, hair/makeup, dresses on hangers, robes, candid prep moments
 - "Ceremony": altar, vows, processional/recessional, officiant, exchanging rings
 - "Portraits": posed shots of couple, bridal party, family portraits
@@ -29,6 +29,13 @@ const SYSTEM_PROMPT = `You categorize wedding photos and video thumbnails into o
 - "Miscellaneous": anything that doesn't clearly fit the others
 
 Be decisive. When in doubt between two, pick the more specific one.`;
+
+function buildEventPrompt(folders: string[]): string {
+  return `You categorize event photo and video thumbnails into one of these folders:
+${folders.map((f) => `- "${f}"`).join('\n')}
+
+Use the folder name as your guide. Pick "Miscellaneous" only when nothing else fits. Be decisive.`;
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
