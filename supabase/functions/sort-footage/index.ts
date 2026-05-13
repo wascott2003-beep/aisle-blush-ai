@@ -51,11 +51,23 @@ Deno.serve(async (req) => {
     if (items.length === 0) return json({ results: [] }, 200);
     if (items.length > 12) return json({ error: 'Batch too large (max 12)' }, 400);
 
+    const projectType: 'wedding' | 'event' = body?.projectType === 'event' ? 'event' : 'wedding';
+    const requestedFolders: string[] = Array.isArray(body?.folders) && body.folders.length > 0
+      ? body.folders.filter((f: unknown): f is string => typeof f === 'string')
+      : [...DEFAULT_WEDDING_FOLDERS];
+    // Always allow Miscellaneous as a safe fallback
+    const folders: string[] = requestedFolders.includes('Miscellaneous')
+      ? requestedFolders
+      : [...requestedFolders, 'Miscellaneous'];
+
+    const systemPrompt = projectType === 'event' ? buildEventPrompt(folders) : WEDDING_PROMPT;
+    const mediaLabel = projectType === 'event' ? 'event' : 'wedding';
+
     // Build a multimodal user message: numbered images + instruction.
     const userContent: Array<Record<string, unknown>> = [
       {
         type: 'text',
-        text: `Classify each of the following ${items.length} wedding media thumbnails. Respond by calling the classify_items tool with one folder per item, in the same order as given. Items:\n${items
+        text: `Classify each of the following ${items.length} ${mediaLabel} media thumbnails. Respond by calling the classify_items tool with one folder per item, in the same order as given. Items:\n${items
           .map((it, i) => `${i + 1}. id=${it.id} (${it.type})`)
           .join('\n')}`,
       },
@@ -78,7 +90,7 @@ Deno.serve(async (req) => {
                 type: 'object',
                 properties: {
                   id: { type: 'string' },
-                  folder: { type: 'string', enum: FOLDERS },
+                  folder: { type: 'string', enum: folders },
                 },
                 required: ['id', 'folder'],
                 additionalProperties: false,
@@ -100,7 +112,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: systemPrompt },
           { role: 'user', content: userContent },
         ],
         tools: [tool],
@@ -129,14 +141,15 @@ Deno.serve(async (req) => {
     const classifications = parsed.classifications || [];
     // Build a map keyed by id, falling back to Miscellaneous for any missing.
     const byId = new Map<string, string>();
+    const folderSet = new Set(folders);
     for (const c of classifications) {
-      if (c?.id && (FOLDERS as readonly string[]).includes(c.folder)) {
+      if (c?.id && folderSet.has(c.folder)) {
         byId.set(c.id, c.folder);
       }
     }
     const results: OutputItem[] = items.map((it) => ({
       id: it.id,
-      folder: (byId.get(it.id) as OutputItem['folder']) || 'Miscellaneous',
+      folder: byId.get(it.id) || 'Miscellaneous',
     }));
 
     return json({ results }, 200);
