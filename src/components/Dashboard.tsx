@@ -15,14 +15,14 @@ const Dashboard = ({ weddings, onSelectWedding, onNewWedding }: DashboardProps) 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-heading font-semibold text-foreground">Your Weddings</h1>
-          <p className="text-muted-foreground font-body mt-1">Manage your wedding projects</p>
+          <p className="text-muted-foreground font-body mt-1">Manage your weddings and event content</p>
         </div>
         <Button
           onClick={onNewWedding}
           className="gradient-rose text-primary-foreground font-body font-medium hover:opacity-90 transition-opacity"
         >
           <Plus className="w-4 h-4 mr-2" />
-          New Wedding
+          New Project
         </Button>
       </div>
 
@@ -42,7 +42,7 @@ const Dashboard = ({ weddings, onSelectWedding, onNewWedding }: DashboardProps) 
             className="gradient-rose text-primary-foreground font-body hover:opacity-90"
           >
             <Plus className="w-4 h-4 mr-2" />
-            New Wedding
+            New Project
           </Button>
         </motion.div>
       ) : (

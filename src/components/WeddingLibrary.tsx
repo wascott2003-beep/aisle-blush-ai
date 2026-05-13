@@ -18,8 +18,8 @@ const WeddingLibrary = ({ weddings, onSelectWedding }: WeddingLibraryProps) => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-heading font-semibold text-foreground">Wedding Library</h1>
-        <p className="text-muted-foreground font-body mt-1">Browse all your wedding projects</p>
+        <h1 className="text-3xl font-heading font-semibold text-foreground">Project Library</h1>
+        <p className="text-muted-foreground font-body mt-1">Browse all your weddings and events</p>
       </div>
 
       <div className="relative mb-6 max-w-md">
