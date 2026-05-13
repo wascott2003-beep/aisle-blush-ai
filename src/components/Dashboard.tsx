@@ -14,7 +14,7 @@ const Dashboard = ({ weddings, onSelectWedding, onNewWedding }: DashboardProps) 
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-heading font-semibold text-foreground">Your Weddings</h1>
+          <h1 className="text-3xl font-heading font-semibold text-foreground">Your Projects</h1>
           <p className="text-muted-foreground font-body mt-1">Manage your weddings and event content</p>
         </div>
         <Button
