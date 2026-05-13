@@ -279,16 +279,40 @@ const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName
       {step === 'info' && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
           <div>
-            <h1 className="text-3xl font-heading font-semibold text-foreground">New Wedding Project</h1>
-            <p className="text-muted-foreground font-body mt-1">Enter the wedding details</p>
+            <h1 className="text-3xl font-heading font-semibold text-foreground">New Project</h1>
+            <p className="text-muted-foreground font-body mt-1">Wedding or other event content</p>
           </div>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-body font-medium text-foreground mb-1.5">Wedding Name</label>
-              <Input placeholder="e.g. Sarah & James" value={name} onChange={(e) => setName(e.target.value)} className="h-12 bg-card border-border rounded-lg font-body" />
+              <label className="block text-sm font-body font-medium text-foreground mb-1.5">Project Type</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['wedding', 'event'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setProjectType(t)}
+                    className={`h-12 rounded-lg border font-body text-sm transition-colors ${
+                      projectType === t
+                        ? 'border-rose-gold bg-accent text-foreground'
+                        : 'border-border bg-card text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {t === 'wedding' ? 'Wedding' : 'Event / Other'}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground font-body mt-1.5">
+                {projectType === 'wedding'
+                  ? 'Auto-sorts into Getting Ready, Ceremony, Portraits, Reception, Details.'
+                  : 'Starts with one Miscellaneous folder. Add your own categories as you go.'}
+              </p>
             </div>
             <div>
-              <label className="block text-sm font-body font-medium text-foreground mb-1.5">Wedding Date</label>
+              <label className="block text-sm font-body font-medium text-foreground mb-1.5">{projectType === 'wedding' ? 'Wedding Name' : 'Project Name'}</label>
+              <Input placeholder={projectType === 'wedding' ? 'e.g. Sarah & James' : 'e.g. Acme Product Launch'} value={name} onChange={(e) => setName(e.target.value)} className="h-12 bg-card border-border rounded-lg font-body" />
+            </div>
+            <div>
+              <label className="block text-sm font-body font-medium text-foreground mb-1.5">Date</label>
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-12 bg-card border-border rounded-lg font-body" />
             </div>
           </div>
