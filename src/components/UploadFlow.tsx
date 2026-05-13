@@ -45,6 +45,7 @@ const LARGE_BATCH_WARNING_THRESHOLD = 200;
 const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName, existingWeddingDate }: UploadFlowProps) => {
   const isAddMore = !!existingWeddingId;
   const [step, setStep] = useState<'info' | 'upload' | 'preparing' | 'done'>(isAddMore ? 'upload' : 'info');
+  const [projectType, setProjectType] = useState<'wedding' | 'event'>('wedding');
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
   // Lazy: hold the raw FileList(s) without iterating. iOS Safari materializes
