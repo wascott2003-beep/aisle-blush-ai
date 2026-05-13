@@ -248,6 +248,8 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
           <SortFootageButton
             weddingId={wedding.id}
             unsortedCount={wedding.folders.find((f) => f.name === 'Unsorted')?.items.length || 0}
+            folders={wedding.folders.filter((f) => f.name !== 'Unsorted').map((f) => f.name)}
+            projectType={wedding.type}
             onSorted={() => onRefresh?.()}
           />
           <Button
