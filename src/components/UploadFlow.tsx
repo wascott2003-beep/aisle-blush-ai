@@ -153,7 +153,7 @@ const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName
       if (!user) throw new Error('Not authenticated');
 
       if (!weddingId) {
-        weddingId = await createWeddingInDb(user.id, name, date);
+        weddingId = await createWeddingInDb(user.id, name, date, projectType);
       }
       setCreatedWeddingId(weddingId);
 
