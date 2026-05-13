@@ -18,7 +18,7 @@ interface SortFootageButtonProps {
 
 const BATCH_SIZE = 8;
 
-const SortFootageButton = ({ weddingId, unsortedCount, onSorted }: SortFootageButtonProps) => {
+const SortFootageButton = ({ weddingId, unsortedCount, folders, projectType, onSorted }: SortFootageButtonProps) => {
   const [open, setOpen] = useState(false);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
