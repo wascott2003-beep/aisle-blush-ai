@@ -35,8 +35,8 @@ const Dashboard = ({ weddings, onSelectWedding, onNewWedding }: DashboardProps) 
           <div className="w-20 h-20 rounded-full bg-accent flex items-center justify-center mx-auto mb-4">
             <ImageIcon className="w-8 h-8 text-rose-gold" />
           </div>
-          <h2 className="font-heading text-xl text-foreground mb-2">No weddings yet</h2>
-          <p className="text-muted-foreground font-body mb-6">Create your first wedding project to get started</p>
+          <h2 className="font-heading text-xl text-foreground mb-2">No projects yet</h2>
+          <p className="text-muted-foreground font-body mb-6">Create your first project to get started</p>
           <Button
             onClick={onNewWedding}
             className="gradient-rose text-primary-foreground font-body hover:opacity-90"
