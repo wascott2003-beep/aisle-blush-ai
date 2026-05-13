@@ -124,10 +124,13 @@ export async function fetchWeddings(userId: string): Promise<Wedding[]> {
       };
     });
 
+    const projectType: ProjectType = ((w as { project_type?: string }).project_type === 'event' ? 'event' : 'wedding');
+    const preset = presetFoldersFor(projectType);
+
     // Preset folders
-    const folders = FOLDER_NAMES.map((fn, i) => ({
+    const folders = preset.names.map((fn, i) => ({
       name: fn,
-      icon: FOLDER_ICONS[i],
+      icon: preset.icons[i],
       items: items.filter((it) => it.folder === fn),
     }));
 
@@ -163,6 +166,7 @@ export async function fetchWeddings(userId: string): Promise<Wedding[]> {
       id: w.id,
       name: w.name,
       date: w.date,
+      type: projectType,
       thumbnail: firstPhoto?.thumbnail || '/placeholder.svg',
       mediaCount: items.length,
       folders,
