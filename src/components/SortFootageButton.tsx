@@ -48,7 +48,7 @@ const SortFootageButton = ({ weddingId, unsortedCount, folders, projectType, onS
         const batch = items.slice(i, i + BATCH_SIZE);
         try {
           const { data, error } = await supabase.functions.invoke('sort-footage', {
-            body: { items: batch },
+            body: { items: batch, folders, projectType: projectType || 'wedding' },
           });
           if (error) throw error;
           const results: Array<{ id: string; folder: string }> = data?.results || [];
