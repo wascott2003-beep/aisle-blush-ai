@@ -10,6 +10,9 @@ import { toast } from '@/hooks/use-toast';
 interface SortFootageButtonProps {
   weddingId: string;
   unsortedCount: number;
+  /** Available folder names (excluding "Unsorted") to sort items into. */
+  folders: string[];
+  projectType?: 'wedding' | 'event';
   onSorted: () => void;
 }
 
