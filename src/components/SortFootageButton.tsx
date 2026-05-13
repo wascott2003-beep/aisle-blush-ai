@@ -10,12 +10,15 @@ import { toast } from '@/hooks/use-toast';
 interface SortFootageButtonProps {
   weddingId: string;
   unsortedCount: number;
+  /** Available folder names (excluding "Unsorted") to sort items into. */
+  folders: string[];
+  projectType?: 'wedding' | 'event';
   onSorted: () => void;
 }
 
 const BATCH_SIZE = 8;
 
-const SortFootageButton = ({ weddingId, unsortedCount, onSorted }: SortFootageButtonProps) => {
+const SortFootageButton = ({ weddingId, unsortedCount, folders, projectType, onSorted }: SortFootageButtonProps) => {
   const [open, setOpen] = useState(false);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
@@ -45,7 +48,7 @@ const SortFootageButton = ({ weddingId, unsortedCount, onSorted }: SortFootageBu
         const batch = items.slice(i, i + BATCH_SIZE);
         try {
           const { data, error } = await supabase.functions.invoke('sort-footage', {
-            body: { items: batch },
+            body: { items: batch, folders, projectType: projectType || 'wedding' },
           });
           if (error) throw error;
           const results: Array<{ id: string; folder: string }> = data?.results || [];

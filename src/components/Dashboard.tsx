@@ -14,15 +14,15 @@ const Dashboard = ({ weddings, onSelectWedding, onNewWedding }: DashboardProps) 
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-heading font-semibold text-foreground">Your Weddings</h1>
-          <p className="text-muted-foreground font-body mt-1">Manage your wedding projects</p>
+          <h1 className="text-3xl font-heading font-semibold text-foreground">Your Projects</h1>
+          <p className="text-muted-foreground font-body mt-1">Manage your weddings and event content</p>
         </div>
         <Button
           onClick={onNewWedding}
           className="gradient-rose text-primary-foreground font-body font-medium hover:opacity-90 transition-opacity"
         >
           <Plus className="w-4 h-4 mr-2" />
-          New Wedding
+          New Project
         </Button>
       </div>
 
@@ -35,14 +35,14 @@ const Dashboard = ({ weddings, onSelectWedding, onNewWedding }: DashboardProps) 
           <div className="w-20 h-20 rounded-full bg-accent flex items-center justify-center mx-auto mb-4">
             <ImageIcon className="w-8 h-8 text-rose-gold" />
           </div>
-          <h2 className="font-heading text-xl text-foreground mb-2">No weddings yet</h2>
-          <p className="text-muted-foreground font-body mb-6">Create your first wedding project to get started</p>
+          <h2 className="font-heading text-xl text-foreground mb-2">No projects yet</h2>
+          <p className="text-muted-foreground font-body mb-6">Create your first project to get started</p>
           <Button
             onClick={onNewWedding}
             className="gradient-rose text-primary-foreground font-body hover:opacity-90"
           >
             <Plus className="w-4 h-4 mr-2" />
-            New Wedding
+            New Project
           </Button>
         </motion.div>
       ) : (
@@ -63,9 +63,16 @@ const Dashboard = ({ weddings, onSelectWedding, onNewWedding }: DashboardProps) 
                 </div>
               </div>
               <div className="p-5 space-y-3">
-                <h3 className="font-heading text-lg font-semibold text-foreground group-hover:text-rose-gold transition-colors">
-                  {wedding.name}
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-heading text-lg font-semibold text-foreground group-hover:text-rose-gold transition-colors flex-1 truncate">
+                    {wedding.name}
+                  </h3>
+                  {wedding.type === 'event' && (
+                    <span className="text-[10px] uppercase tracking-wide font-body font-medium px-2 py-0.5 rounded-full bg-accent text-rose-gold border border-rose-gold/30">
+                      Event
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground font-body">
                   <span className="flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5" />

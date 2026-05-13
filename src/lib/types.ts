@@ -14,10 +14,13 @@ export interface Vendor {
   website?: string;
 }
 
+export type ProjectType = 'wedding' | 'event';
+
 export interface Wedding {
   id: string;
   name: string;
   date: string;
+  type: ProjectType;
   thumbnail: string;
   mediaCount: number;
   folders: MediaFolder[];

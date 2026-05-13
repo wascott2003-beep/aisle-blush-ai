@@ -7,7 +7,7 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const FOLDERS = ['Getting Ready', 'Ceremony', 'Portraits', 'Reception', 'Details', 'Miscellaneous'] as const;
+const DEFAULT_WEDDING_FOLDERS = ['Getting Ready', 'Ceremony', 'Portraits', 'Reception', 'Details', 'Miscellaneous'] as const;
 
 interface InputItem {
   id: string;
@@ -17,10 +17,10 @@ interface InputItem {
 
 interface OutputItem {
   id: string;
-  folder: typeof FOLDERS[number];
+  folder: string;
 }
 
-const SYSTEM_PROMPT = `You categorize wedding photos and video thumbnails into one of these folders:
+const WEDDING_PROMPT = `You categorize wedding photos and video thumbnails into one of these folders:
 - "Getting Ready": pre-ceremony prep, hair/makeup, dresses on hangers, robes, candid prep moments
 - "Ceremony": altar, vows, processional/recessional, officiant, exchanging rings
 - "Portraits": posed shots of couple, bridal party, family portraits
@@ -29,6 +29,13 @@ const SYSTEM_PROMPT = `You categorize wedding photos and video thumbnails into o
 - "Miscellaneous": anything that doesn't clearly fit the others
 
 Be decisive. When in doubt between two, pick the more specific one.`;
+
+function buildEventPrompt(folders: string[]): string {
+  return `You categorize event photo and video thumbnails into one of these folders:
+${folders.map((f) => `- "${f}"`).join('\n')}
+
+Use the folder name as your guide. Pick "Miscellaneous" only when nothing else fits. Be decisive.`;
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -44,11 +51,23 @@ Deno.serve(async (req) => {
     if (items.length === 0) return json({ results: [] }, 200);
     if (items.length > 12) return json({ error: 'Batch too large (max 12)' }, 400);
 
+    const projectType: 'wedding' | 'event' = body?.projectType === 'event' ? 'event' : 'wedding';
+    const requestedFolders: string[] = Array.isArray(body?.folders) && body.folders.length > 0
+      ? body.folders.filter((f: unknown): f is string => typeof f === 'string')
+      : [...DEFAULT_WEDDING_FOLDERS];
+    // Always allow Miscellaneous as a safe fallback
+    const folders: string[] = requestedFolders.includes('Miscellaneous')
+      ? requestedFolders
+      : [...requestedFolders, 'Miscellaneous'];
+
+    const systemPrompt = projectType === 'event' ? buildEventPrompt(folders) : WEDDING_PROMPT;
+    const mediaLabel = projectType === 'event' ? 'event' : 'wedding';
+
     // Build a multimodal user message: numbered images + instruction.
     const userContent: Array<Record<string, unknown>> = [
       {
         type: 'text',
-        text: `Classify each of the following ${items.length} wedding media thumbnails. Respond by calling the classify_items tool with one folder per item, in the same order as given. Items:\n${items
+        text: `Classify each of the following ${items.length} ${mediaLabel} media thumbnails. Respond by calling the classify_items tool with one folder per item, in the same order as given. Items:\n${items
           .map((it, i) => `${i + 1}. id=${it.id} (${it.type})`)
           .join('\n')}`,
       },
@@ -71,7 +90,7 @@ Deno.serve(async (req) => {
                 type: 'object',
                 properties: {
                   id: { type: 'string' },
-                  folder: { type: 'string', enum: FOLDERS },
+                  folder: { type: 'string', enum: folders },
                 },
                 required: ['id', 'folder'],
                 additionalProperties: false,
@@ -93,7 +112,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: systemPrompt },
           { role: 'user', content: userContent },
         ],
         tools: [tool],
@@ -122,14 +141,15 @@ Deno.serve(async (req) => {
     const classifications = parsed.classifications || [];
     // Build a map keyed by id, falling back to Miscellaneous for any missing.
     const byId = new Map<string, string>();
+    const folderSet = new Set(folders);
     for (const c of classifications) {
-      if (c?.id && (FOLDERS as readonly string[]).includes(c.folder)) {
+      if (c?.id && folderSet.has(c.folder)) {
         byId.set(c.id, c.folder);
       }
     }
     const results: OutputItem[] = items.map((it) => ({
       id: it.id,
-      folder: (byId.get(it.id) as OutputItem['folder']) || 'Miscellaneous',
+      folder: byId.get(it.id) || 'Miscellaneous',
     }));
 
     return json({ results }, 200);

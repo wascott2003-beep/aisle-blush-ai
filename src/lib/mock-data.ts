@@ -7,6 +7,7 @@ export const mockWeddings: Wedding[] = [
     id: '1',
     name: 'Sarah & James',
     date: '2025-06-14',
+    type: 'wedding',
     thumbnail: placeholderThumb,
     mediaCount: 342,
     folders: [
@@ -33,6 +34,7 @@ export const mockWeddings: Wedding[] = [
     id: '2',
     name: 'Emily & David',
     date: '2025-05-22',
+    type: 'wedding',
     thumbnail: placeholderThumb,
     mediaCount: 278,
     folders: [
@@ -51,6 +53,7 @@ export const mockWeddings: Wedding[] = [
     id: '3',
     name: 'Olivia & Michael',
     date: '2025-04-10',
+    type: 'wedding',
     thumbnail: placeholderThumb,
     mediaCount: 456,
     folders: [
