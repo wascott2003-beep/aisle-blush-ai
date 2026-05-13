@@ -1,10 +1,18 @@
 import { supabase } from '@/integrations/supabase/client';
-import { Wedding, MediaItem, Vendor } from '@/lib/types';
+import { Wedding, MediaItem, Vendor, ProjectType } from '@/lib/types';
 
-const FOLDER_NAMES = ['Getting Ready', 'Ceremony', 'Portraits', 'Reception', 'Details', 'Miscellaneous'];
-const FOLDER_ICONS = ['Sparkles', 'Heart', 'Camera', 'PartyPopper', 'Gem', 'FolderOpen'];
+const WEDDING_FOLDER_NAMES = ['Getting Ready', 'Ceremony', 'Portraits', 'Reception', 'Details', 'Miscellaneous'];
+const WEDDING_FOLDER_ICONS = ['Sparkles', 'Heart', 'Camera', 'PartyPopper', 'Gem', 'FolderOpen'];
+const EVENT_FOLDER_NAMES = ['Miscellaneous'];
+const EVENT_FOLDER_ICONS = ['FolderOpen'];
 const UNSORTED_FOLDER = 'Unsorted';
 const UNSORTED_ICON = 'Inbox';
+
+export function presetFoldersFor(type: ProjectType): { names: string[]; icons: string[] } {
+  return type === 'event'
+    ? { names: EVENT_FOLDER_NAMES, icons: EVENT_FOLDER_ICONS }
+    : { names: WEDDING_FOLDER_NAMES, icons: WEDDING_FOLDER_ICONS };
+}
 
 export function getPublicUrl(path: string): string {
   const { data } = supabase.storage.from('wedding-media').getPublicUrl(path);
