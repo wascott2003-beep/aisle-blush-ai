@@ -63,9 +63,16 @@ const Dashboard = ({ weddings, onSelectWedding, onNewWedding }: DashboardProps) 
                 </div>
               </div>
               <div className="p-5 space-y-3">
-                <h3 className="font-heading text-lg font-semibold text-foreground group-hover:text-rose-gold transition-colors">
-                  {wedding.name}
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-heading text-lg font-semibold text-foreground group-hover:text-rose-gold transition-colors flex-1 truncate">
+                    {wedding.name}
+                  </h3>
+                  {wedding.type === 'event' && (
+                    <span className="text-[10px] uppercase tracking-wide font-body font-medium px-2 py-0.5 rounded-full bg-accent text-rose-gold border border-rose-gold/30">
+                      Event
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground font-body">
                   <span className="flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5" />
