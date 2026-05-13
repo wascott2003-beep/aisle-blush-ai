@@ -34,10 +34,10 @@ export async function uploadMediaFile(
   return { storagePath, publicUrl: getPublicUrl(storagePath) };
 }
 
-export async function createWeddingInDb(userId: string, name: string, date: string): Promise<string> {
+export async function createWeddingInDb(userId: string, name: string, date: string, type: ProjectType = 'wedding'): Promise<string> {
   const { data, error } = await supabase
     .from('weddings')
-    .insert({ user_id: userId, name, date })
+    .insert({ user_id: userId, name, date, project_type: type })
     .select('id')
     .single();
   if (error) throw error;
