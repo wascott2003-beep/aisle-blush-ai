@@ -187,7 +187,7 @@ const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName
           for (let j = i; j < Math.min(i + BULK_INSERT_SIZE, videoSelection!.length); j++) {
             const file = videoSelection![j];
             prepared += 1;
-            if (!isSupportedMediaFile(file)) { localSkipped += 1; continue; }
+            if (!isVideoFile(file)) { localSkipped += 1; continue; }
             if (file.size > MAX_FILE_SIZE_BYTES) { localOversize += 1; continue; }
             const mediaId = crypto.randomUUID();
             const placeholderPath = `${weddingId!}/${UNSORTED_FOLDER}/pending/${crypto.randomUUID()}`;
@@ -480,6 +480,15 @@ const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName
             <p className="text-xs text-muted-foreground font-body mt-4 max-w-sm mx-auto">
               Creating instant previews so you can see everything right away. Originals upload in the background.
             </p>
+            {createdWeddingId && prepProgress > 0 && (
+              <Button
+                onClick={() => onComplete(createdWeddingId)}
+                variant="outline"
+                className="mt-4 border-rose-gold text-rose-gold hover:bg-accent font-body"
+              >
+                View project while uploads continue
+              </Button>
+            )}
           </div>
         </motion.div>
       )}
@@ -593,7 +602,15 @@ function getExt(file: File): string {
 }
 
 function isSupportedMediaFile(file: File) {
-  return file.type.startsWith('image/') || file.type.startsWith('video/');
+  return isPhotoFile(file) || isVideoFile(file);
+}
+
+function isPhotoFile(file: File) {
+  return file.type.startsWith('image/') || /\.(jpe?g|png|gif|webp|heic|heif)$/i.test(file.name);
+}
+
+function isVideoFile(file: File) {
+  return file.type.startsWith('video/') || /\.(mov|mp4|m4v|avi|mts|m2ts|webm)$/i.test(file.name);
 }
 
 
