@@ -96,6 +96,19 @@ export function enqueueUpload(job: QueueJob) {
   void runLoop();
 }
 
+export function enqueueUploads(jobs: QueueJob[]) {
+  if (jobs.length === 0) return;
+  queue.push(...jobs);
+  state.total += jobs.length;
+  const byWedding = jobs.reduce<Record<string, number>>((acc, job) => {
+    acc[job.weddingId] = (acc[job.weddingId] || 0) + 1;
+    return acc;
+  }, {});
+  Object.entries(byWedding).forEach(([weddingId, count]) => bumpWedding(weddingId, count));
+  emit();
+  void runLoop();
+}
+
 // Cancel every pending upload for a given wedding. The job currently being
 // uploaded (already in flight) cannot be aborted — supabase-js v2 doesn't
 // expose an AbortSignal for storage uploads — so it will finish, but no
