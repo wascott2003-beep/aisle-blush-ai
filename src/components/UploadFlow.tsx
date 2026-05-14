@@ -168,6 +168,60 @@ const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName
       let localSkipped = 0;
       let localOversize = 0;
 
+      if (videoCount >= BULK_VIDEO_FAST_PATH_THRESHOLD && photoCount === 0) {
+        setPrepStatus(`Queuing ${videoCount} videos for background upload`);
+        for (let i = 0; i < videoSelection!.length; i += BULK_INSERT_SIZE) {
+          const jobs: Array<{ mediaId: string; weddingId: string; folder: string; file: File; ext: string }> = [];
+          const rows: Array<{
+            id: string;
+            wedding_id: string;
+            type: string;
+            folder: string;
+            storage_path: string;
+            preview_storage_path: null;
+            upload_status: 'pending';
+            flag_reason: null;
+            duration: null;
+          }> = [];
+
+          for (let j = i; j < Math.min(i + BULK_INSERT_SIZE, videoSelection!.length); j++) {
+            const file = videoSelection![j];
+            prepared += 1;
+            if (!isSupportedMediaFile(file)) { localSkipped += 1; continue; }
+            if (file.size > MAX_FILE_SIZE_BYTES) { localOversize += 1; continue; }
+            const mediaId = crypto.randomUUID();
+            const placeholderPath = `${weddingId!}/${UNSORTED_FOLDER}/pending/${crypto.randomUUID()}`;
+            rows.push({
+              id: mediaId,
+              wedding_id: weddingId!,
+              type: 'video',
+              folder: UNSORTED_FOLDER,
+              storage_path: placeholderPath,
+              preview_storage_path: null,
+              upload_status: 'pending',
+              flag_reason: null,
+              duration: null,
+            });
+            jobs.push({ mediaId, weddingId: weddingId!, folder: UNSORTED_FOLDER, file, ext: getExt(file) });
+          }
+
+          await insertMediaItems(rows);
+          jobs.forEach(enqueueUpload);
+          setPrepProgress((prepared / totalSelected) * 100);
+          setPrepStatus(`Queued ${Math.min(prepared, totalSelected)} of ${totalSelected} videos`);
+          await new Promise((resolve) => window.setTimeout(resolve, 0));
+        }
+
+        setSkippedCount(localSkipped);
+        setOversizeCount(localOversize);
+        if (prepared - localSkipped - localOversize === 0) throw new Error('All files failed to prepare');
+        setFlaggedCount(0);
+        setFailedCount(0);
+        setPrepProgress(100);
+        setStep('done');
+        return;
+      }
+
       // Collect validated files lazily
       while (true) {
         const next = iterator.next();
