@@ -4,7 +4,7 @@ import { Sparkles, Loader2, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchUnsortedItems, updateMediaItemFolder } from '@/lib/supabase-helpers';
+import { fetchUnsortedItems, updateMediaItemFolder, bulkUpdateMediaItemFolder } from '@/lib/supabase-helpers';
 import { toast } from '@/hooks/use-toast';
 
 interface SortFootageButtonProps {
