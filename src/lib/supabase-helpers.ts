@@ -50,6 +50,7 @@ export async function deleteWeddingById(id: string) {
 }
 
 export async function insertMediaItem(item: {
+  id?: string;
   wedding_id: string;
   type: string;
   folder: string;
@@ -66,6 +67,22 @@ export async function insertMediaItem(item: {
     .single();
   if (error) throw error;
   return data.id;
+}
+
+export async function insertMediaItems(items: Array<{
+  id: string;
+  wedding_id: string;
+  type: string;
+  folder: string;
+  storage_path: string;
+  preview_storage_path?: string | null;
+  upload_status?: 'pending' | 'complete';
+  flag_reason?: string | null;
+  duration?: number | null;
+}>) {
+  if (items.length === 0) return;
+  const { error } = await supabase.from('media_items').insert(items);
+  if (error) throw error;
 }
 
 export async function updateMediaItemStatus(
