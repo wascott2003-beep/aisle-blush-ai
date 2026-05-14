@@ -20,6 +20,7 @@ import {
   createWeddingInDb,
   deleteWeddingById,
   insertMediaItem,
+  insertMediaItems,
   uploadMediaFile,
 } from '@/lib/supabase-helpers';
 import { generatePhotoPreview, extractVideoMeta } from '@/lib/poster-frame';
@@ -39,6 +40,8 @@ const UNSORTED_FOLDER = 'Unsorted';
 const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024;
 
 const PER_PREVIEW_TIMEOUT_MS = 30 * 1000;
+const BULK_VIDEO_FAST_PATH_THRESHOLD = 50;
+const BULK_INSERT_SIZE = 100;
 // Soft limit — warn users when uploading exceptionally large batches.
 const LARGE_BATCH_WARNING_THRESHOLD = 200;
 
