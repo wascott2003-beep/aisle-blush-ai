@@ -4,7 +4,7 @@ import { Sparkles, Loader2, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchUnsortedItems, updateMediaItemFolder } from '@/lib/supabase-helpers';
+import { fetchUnsortedItems, updateMediaItemFolder, bulkUpdateMediaItemFolder } from '@/lib/supabase-helpers';
 import { toast } from '@/hooks/use-toast';
 
 interface SortFootageButtonProps {
@@ -35,15 +35,28 @@ const SortFootageButton = ({ weddingId, unsortedCount, folders, projectType, onS
     setCurrentFolder(null);
 
     try {
-      const items = await fetchUnsortedItems(weddingId);
-      setTotal(items.length);
+      const allItems = await fetchUnsortedItems(weddingId);
+      const sortable = allItems.filter((it) => it.sortable);
+      const unsortable = allItems.filter((it) => !it.sortable);
+
+      // Auto-route items we can't classify (e.g. videos still uploading without a preview) to Miscellaneous.
+      if (unsortable.length > 0) {
+        try {
+          await bulkUpdateMediaItemFolder(unsortable.map((it) => it.id), 'Miscellaneous');
+        } catch (e) {
+          console.warn('Failed to bulk-assign unsortable items:', e);
+        }
+      }
+
+      const items = sortable.map(({ id, type, thumbnailUrl }) => ({ id, type, thumbnailUrl }));
+      setTotal(allItems.length);
+      let count = unsortable.length;
+      setProcessed(count);
       if (items.length === 0) {
         setRunning(false);
         setDone(true);
         return;
       }
-
-      let count = 0;
       for (let i = 0; i < items.length; i += BATCH_SIZE) {
         const batch = items.slice(i, i + BATCH_SIZE);
         try {

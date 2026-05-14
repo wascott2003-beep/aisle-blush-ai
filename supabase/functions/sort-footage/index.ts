@@ -125,7 +125,10 @@ Deno.serve(async (req) => {
       console.error('AI gateway error', aiRes.status, text);
       if (aiRes.status === 429) return json({ error: 'Rate limited, try again shortly.' }, 429);
       if (aiRes.status === 402) return json({ error: 'AI credits exhausted.' }, 402);
-      return json({ error: 'AI gateway error' }, 500);
+      // Image fetch / size errors (400, 413) and other upstream failures: don't fail the whole batch.
+      // Return Miscellaneous for every item so the client can keep going.
+      const fallback: OutputItem[] = items.map((it) => ({ id: it.id, folder: 'Miscellaneous' }));
+      return json({ results: fallback, fallback: true }, 200);
     }
 
     const data = await aiRes.json();

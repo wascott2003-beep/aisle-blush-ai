@@ -216,19 +216,32 @@ export async function deleteVendor(vendorId: string) {
 export async function fetchUnsortedItems(weddingId: string) {
   const { data, error } = await supabase
     .from('media_items')
-    .select('id, type, storage_path, preview_storage_path')
+    .select('id, type, storage_path, preview_storage_path, upload_status')
     .eq('wedding_id', weddingId)
     .eq('folder', 'Unsorted');
   if (error) throw error;
   return (data || []).map((m) => {
     const previewPath = (m as { preview_storage_path?: string | null }).preview_storage_path;
+    const status = (m as { upload_status?: string }).upload_status;
+    const type = m.type as 'photo' | 'video';
+    // Sortable if we have a real image to show the AI:
+    // - photos: only when fully uploaded (storage_path is the real photo)
+    // - videos: only when a preview thumbnail was generated
+    const sortable = type === 'photo' ? status === 'complete' && !!m.storage_path : !!previewPath;
     const thumbPath = previewPath || m.storage_path;
     return {
       id: m.id,
-      type: m.type as 'photo' | 'video',
+      type,
       thumbnailUrl: getPublicUrl(thumbPath),
+      sortable,
     };
   });
+}
+
+export async function bulkUpdateMediaItemFolder(ids: string[], folder: string) {
+  if (ids.length === 0) return;
+  const { error } = await supabase.from('media_items').update({ folder }).in('id', ids);
+  if (error) throw error;
 }
 
 export async function updateMediaItemFolder(id: string, folder: string) {
