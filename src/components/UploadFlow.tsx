@@ -24,7 +24,7 @@ import {
   uploadMediaFile,
 } from '@/lib/supabase-helpers';
 import { generatePhotoPreview, extractVideoMeta } from '@/lib/poster-frame';
-import { enqueueUpload } from '@/lib/upload-queue';
+import { enqueueUpload, enqueueUploads } from '@/lib/upload-queue';
 
 interface UploadFlowProps {
   onBack: () => void;
@@ -41,7 +41,7 @@ const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024;
 
 const PER_PREVIEW_TIMEOUT_MS = 30 * 1000;
 const BULK_VIDEO_FAST_PATH_THRESHOLD = 50;
-const BULK_INSERT_SIZE = 100;
+const BULK_INSERT_SIZE = 25;
 // Soft limit — warn users when uploading exceptionally large batches.
 const LARGE_BATCH_WARNING_THRESHOLD = 200;
 
@@ -206,7 +206,7 @@ const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName
           }
 
           await insertMediaItems(rows);
-          jobs.forEach(enqueueUpload);
+          enqueueUploads(jobs);
           setPrepProgress((prepared / totalSelected) * 100);
           setPrepStatus(`Queued ${Math.min(prepared, totalSelected)} of ${totalSelected} videos`);
           await new Promise((resolve) => window.setTimeout(resolve, 0));
