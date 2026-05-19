@@ -63,6 +63,16 @@ Deno.serve(async (req) => {
       thumbnail: publicUrl(v.preview_storage_path!),
     }));
 
+    // If no previews exist, skip AI picking entirely and use folder-spread fallback.
+    if (candidateList.length === 0) {
+      const targetCount = Math.min(Math.max(Math.round(length / 3), 4), 12);
+      const perClip = length / Math.min(videos.length, targetCount);
+      const fallback: ClipChoice[] = spreadAcrossFolders(videos, targetCount).map((v) => ({
+        mediaId: v.id, trimStart: 0, length: perClip, reason: "no-preview fallback",
+      }));
+      return await submitToShotstack(admin, weddingId, mood, length, musicStoragePath, fallback, videos);
+    }
+
     const prompt = `You are an expert wedding/event highlight reel editor.
 Pick the best clips from the list to build a ${length}-second reel with a "${mood}" mood.
 Rules:
