@@ -207,3 +207,19 @@ function json(body: unknown, status = 200) {
     status, headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
+
+function spreadAcrossFolders<T extends { folder: string }>(items: T[], targetCount: number): T[] {
+  const byFolder = new Map<string, T[]>();
+  for (const it of items) {
+    if (!byFolder.has(it.folder)) byFolder.set(it.folder, []);
+    byFolder.get(it.folder)!.push(it);
+  }
+  const out: T[] = [];
+  const folders = [...byFolder.keys()];
+  let i = 0;
+  while (out.length < targetCount && folders.some((f) => byFolder.get(f)!.length > 0)) {
+    const bucket = byFolder.get(folders[i % folders.length])!;
+    if (bucket.length > 0) out.push(bucket.shift()!);
+    i++;
+  }
+  return out;
