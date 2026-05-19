@@ -44,13 +44,21 @@ Deno.serve(async (req) => {
       .eq("upload_status", "complete")
       .neq("folder", "Unsorted");
     if (mediaErr) throw mediaErr;
-    const videos = (media || []).filter((v) => v.storage_path && v.preview_storage_path);
+    const videos = (media || []).filter((v) => !!v.storage_path);
     if (videos.length < 2) {
-      return json({ error: "Need at least 2 sorted, uploaded videos to build a reel." }, 400);
+      // Help the user understand WHY (uploads still pending vs nothing sorted).
+      const { count: pendingCount } = await admin
+        .from("media_items").select("id", { count: "exact", head: true })
+        .eq("wedding_id", weddingId).eq("type", "video").eq("upload_status", "pending");
+      const msg = (pendingCount || 0) > 0
+        ? `Your videos are still uploading in the background (${pendingCount} pending). Wait for the upload indicator to finish, then try again.`
+        : "Need at least 2 sorted, uploaded videos in folders other than Unsorted.";
+      return json({ error: msg }, 400);
     }
 
-    // Ask the AI to score & select clips.
-    const candidateList = videos.map((v) => ({
+    // Only clips with a preview thumbnail can be scored by the vision AI.
+    const withPreview = videos.filter((v) => !!v.preview_storage_path);
+    const candidateList = withPreview.map((v) => ({
       id: v.id, folder: v.folder, duration: v.duration ?? null,
       thumbnail: publicUrl(v.preview_storage_path!),
     }));
