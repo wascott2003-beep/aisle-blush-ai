@@ -70,6 +70,22 @@ const ReelCreator = ({ weddingId, weddingName, onBack }: ReelCreatorProps) => {
     }
   };
 
+  const getFunctionErrorMessage = async (error: unknown) => {
+    const context = (error as { context?: Response })?.context;
+    if (context) {
+      try {
+        const body = await context.clone().json();
+        if (body?.error) return String(body.error);
+      } catch {
+        try {
+          const text = await context.clone().text();
+          if (text) return text;
+        } catch {/* ignore */}
+      }
+    }
+    return error instanceof Error ? error.message : 'Something went wrong';
+  };
+
   const handleGenerate = async () => {
     if (!mood) return;
     setStep('generating');
@@ -82,7 +98,7 @@ const ReelCreator = ({ weddingId, weddingName, onBack }: ReelCreatorProps) => {
       const { data, error } = await supabase.functions.invoke('generate-reel', {
         body: { weddingId, mood, length, musicStoragePath: musicPath },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await getFunctionErrorMessage(error));
       if (data?.error) throw new Error(data.error);
       const reelId = data.reelId as string;
       setStatusLabel(`Rendering your ${length}s reel from ${data.clipCount} clips…`);
@@ -198,7 +214,7 @@ const ReelCreator = ({ weddingId, weddingName, onBack }: ReelCreatorProps) => {
               Generate Reel
             </Button>
             <p className="text-[11px] text-muted-foreground font-body text-center mt-3">
-              Uses sorted videos from this project. Sandbox renders include a Shotstack watermark.
+              Uses sorted uploaded videos from this project.
             </p>
           </motion.div>
         )}
