@@ -214,7 +214,7 @@ const ReelCreator = ({ weddingId, weddingName, onBack }: ReelCreatorProps) => {
               Generate Reel
             </Button>
             <p className="text-[11px] text-muted-foreground font-body text-center mt-3">
-              Uses sorted videos from this project. Sandbox renders include a Shotstack watermark.
+              Uses sorted uploaded videos from this project.
             </p>
           </motion.div>
         )}
