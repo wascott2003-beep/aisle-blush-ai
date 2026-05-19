@@ -209,6 +209,11 @@ function json(body: unknown, status = 200) {
   });
 }
 
+function getTargetClipCount(length: number, available: number): number {
+  const target = length <= 15 ? 5 : length <= 30 ? 6 : 10;
+  return Math.min(available, target);
+}
+
 function spreadAcrossFolders<T extends { folder: string }>(items: T[], targetCount: number): T[] {
   const byFolder = new Map<string, T[]>();
   for (const it of items) {
