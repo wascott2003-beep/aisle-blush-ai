@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
 
     // If no previews exist, skip AI picking entirely and use folder-spread fallback.
     if (candidateList.length === 0) {
-      const targetCount = Math.min(Math.max(Math.round(length / 3), 4), 12);
+      const targetCount = getTargetClipCount(length, videos.length);
       const perClip = length / Math.min(videos.length, targetCount);
       const fallback: ClipChoice[] = spreadAcrossFolders(videos, targetCount).map((v) => ({
         mediaId: v.id, trimStart: 0, length: perClip, reason: "no-preview fallback",
@@ -101,8 +101,9 @@ ${candidateList.map((c) => `- ${c.id} [${c.folder}] dur=${c.duration ?? "?"}s th
       const txt = await aiResp.text();
       console.error("AI gateway error", aiResp.status, txt);
       // Fallback: pick first N videos with even slicing.
-      const perClip = length / Math.min(videos.length, 8);
-      const fallback: ClipChoice[] = videos.slice(0, 8).map((v) => ({
+      const targetCount = getTargetClipCount(length, videos.length);
+      const perClip = length / targetCount;
+      const fallback: ClipChoice[] = spreadAcrossFolders(videos, targetCount).map((v) => ({
         mediaId: v.id, trimStart: 0, length: perClip, reason: "fallback",
       }));
       return await submitToShotstack(admin, weddingId, mood, length, musicStoragePath, fallback, videos);
@@ -110,7 +111,7 @@ ${candidateList.map((c) => `- ${c.id} [${c.folder}] dur=${c.duration ?? "?"}s th
     const aiJson = await aiResp.json();
     const content = aiJson.choices?.[0]?.message?.content || "{}";
     const parsed = JSON.parse(content);
-    const clips: ClipChoice[] = Array.isArray(parsed.clips) ? parsed.clips : [];
+    const clips: ClipChoice[] = Array.isArray(parsed.clips) ? parsed.clips.slice(0, getTargetClipCount(length, videos.length)) : [];
     if (clips.length === 0) {
       return json({ error: "AI did not return any clips. Try again." }, 502);
     }
@@ -206,6 +207,11 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status, headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function getTargetClipCount(length: number, available: number): number {
+  const target = length <= 15 ? 5 : length <= 30 ? 6 : 10;
+  return Math.min(available, target);
 }
 
 function spreadAcrossFolders<T extends { folder: string }>(items: T[], targetCount: number): T[] {

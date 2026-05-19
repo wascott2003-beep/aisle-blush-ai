@@ -113,12 +113,27 @@ const ReelCreator = ({ weddingId, weddingName, onBack }: ReelCreatorProps) => {
 
   const startPolling = (reelId: string) => {
     let bumps = 45;
+    let pollCount = 0;
     pollTimer.current = window.setInterval(async () => {
+      pollCount += 1;
       bumps = Math.min(bumps + 2, 92);
       setProgress(bumps);
       try {
         const { data, error } = await supabase.functions.invoke('reel-status', { body: { reelId } });
-        if (error) return;
+        if (error) {
+          setStatusLabel('Still checking render status…');
+          return;
+        }
+        if (data?.progress) {
+          const labels: Record<string, string> = {
+            queued: 'Waiting in the render queue…',
+            fetching: 'Fetching source videos…',
+            preprocessing: 'Preparing iPhone video files…',
+            rendering: `Rendering your ${length}s reel…`,
+            saving: 'Saving your finished reel…',
+          };
+          setStatusLabel(labels[data.progress as string] || `Render status: ${data.progress}`);
+        }
         if (data?.status === 'complete' && data.url) {
           if (pollTimer.current) window.clearInterval(pollTimer.current);
           setProgress(100);
@@ -126,7 +141,11 @@ const ReelCreator = ({ weddingId, weddingName, onBack }: ReelCreatorProps) => {
           setTimeout(() => setStep('preview'), 400);
         } else if (data?.status === 'failed') {
           if (pollTimer.current) window.clearInterval(pollTimer.current);
-          setErrorMsg('The render service failed. Please try again.');
+          setErrorMsg(data.error || 'The render service failed. Please try again.');
+          setStep('error');
+        } else if (pollCount >= 144) {
+          if (pollTimer.current) window.clearInterval(pollTimer.current);
+          setErrorMsg('Rendering is taking longer than expected. Try again with a shorter reel, or wait a few minutes and retry.');
           setStep('error');
         }
       } catch {/* keep polling */}
@@ -243,7 +262,7 @@ const ReelCreator = ({ weddingId, weddingName, onBack }: ReelCreatorProps) => {
                   animate={{ width: `${progress}%` }} transition={{ ease: 'easeOut' }} />
               </div>
               <p className="text-xs text-muted-foreground font-body text-center mt-2">
-                This usually takes 1–3 minutes
+                Large iPhone clips can take several minutes to prepare
               </p>
             </div>
           </motion.div>

@@ -39,8 +39,9 @@ Deno.serve(async (req) => {
     }
     const status = j.response.status as string; // queued|fetching|rendering|saving|done|failed
     if (status === "failed") {
-      await admin.from("reels").update({ status: "failed", error_message: j.response.error || "Render failed" }).eq("id", reelId);
-      return json({ status: "failed" });
+      const message = j.response.error || j.response.message || "Render failed";
+      await admin.from("reels").update({ status: "failed", error_message: message }).eq("id", reelId);
+      return json({ status: "failed", error: message });
     }
     if (status !== "done") {
       return json({ status: "rendering", progress: status });
