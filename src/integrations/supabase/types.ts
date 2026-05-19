@@ -61,6 +61,51 @@ export type Database = {
           },
         ]
       }
+      reels: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          length_seconds: number
+          mood: string
+          music_storage_path: string | null
+          output_storage_path: string | null
+          shotstack_render_id: string | null
+          status: string
+          timeline: Json | null
+          updated_at: string
+          wedding_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          length_seconds: number
+          mood: string
+          music_storage_path?: string | null
+          output_storage_path?: string | null
+          shotstack_render_id?: string | null
+          status?: string
+          timeline?: Json | null
+          updated_at?: string
+          wedding_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          length_seconds?: number
+          mood?: string
+          music_storage_path?: string | null
+          output_storage_path?: string | null
+          shotstack_render_id?: string | null
+          status?: string
+          timeline?: Json | null
+          updated_at?: string
+          wedding_id?: string
+        }
+        Relationships: []
+      }
       vendors: {
         Row: {
           business_name: string
