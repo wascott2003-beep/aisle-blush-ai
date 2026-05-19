@@ -11,8 +11,8 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-// Shotstack sandbox endpoint (free, watermarked). Swap host for production.
-const SHOTSTACK_HOST = "https://api.shotstack.io/edit/stage";
+// Shotstack production endpoint. The configured key belongs to Production.
+const SHOTSTACK_HOST = "https://api.shotstack.io/edit/v1";
 
 type Mood = "Romantic" | "Fun & Upbeat" | "Cinematic" | "Emotional";
 
