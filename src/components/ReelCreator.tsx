@@ -262,7 +262,7 @@ const ReelCreator = ({ weddingId, weddingName, onBack }: ReelCreatorProps) => {
                   animate={{ width: `${progress}%` }} transition={{ ease: 'easeOut' }} />
               </div>
               <p className="text-xs text-muted-foreground font-body text-center mt-2">
-                This usually takes 1–3 minutes
+                Large iPhone clips can take several minutes to prepare
               </p>
             </div>
           </motion.div>
