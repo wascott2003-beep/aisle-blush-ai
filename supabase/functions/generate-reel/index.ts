@@ -44,16 +44,34 @@ Deno.serve(async (req) => {
       .eq("upload_status", "complete")
       .neq("folder", "Unsorted");
     if (mediaErr) throw mediaErr;
-    const videos = (media || []).filter((v) => v.storage_path && v.preview_storage_path);
+    const videos = (media || []).filter((v) => !!v.storage_path);
     if (videos.length < 2) {
-      return json({ error: "Need at least 2 sorted, uploaded videos to build a reel." }, 400);
+      // Help the user understand WHY (uploads still pending vs nothing sorted).
+      const { count: pendingCount } = await admin
+        .from("media_items").select("id", { count: "exact", head: true })
+        .eq("wedding_id", weddingId).eq("type", "video").eq("upload_status", "pending");
+      const msg = (pendingCount || 0) > 0
+        ? `Your videos are still uploading in the background (${pendingCount} pending). Wait for the upload indicator to finish, then try again.`
+        : "Need at least 2 sorted, uploaded videos in folders other than Unsorted.";
+      return json({ error: msg }, 400);
     }
 
-    // Ask the AI to score & select clips.
-    const candidateList = videos.map((v) => ({
+    // Only clips with a preview thumbnail can be scored by the vision AI.
+    const withPreview = videos.filter((v) => !!v.preview_storage_path);
+    const candidateList = withPreview.map((v) => ({
       id: v.id, folder: v.folder, duration: v.duration ?? null,
       thumbnail: publicUrl(v.preview_storage_path!),
     }));
+
+    // If no previews exist, skip AI picking entirely and use folder-spread fallback.
+    if (candidateList.length === 0) {
+      const targetCount = Math.min(Math.max(Math.round(length / 3), 4), 12);
+      const perClip = length / Math.min(videos.length, targetCount);
+      const fallback: ClipChoice[] = spreadAcrossFolders(videos, targetCount).map((v) => ({
+        mediaId: v.id, trimStart: 0, length: perClip, reason: "no-preview fallback",
+      }));
+      return await submitToShotstack(admin, weddingId, mood, length, musicStoragePath, fallback, videos);
+    }
 
     const prompt = `You are an expert wedding/event highlight reel editor.
 Pick the best clips from the list to build a ${length}-second reel with a "${mood}" mood.
@@ -189,3 +207,19 @@ function json(body: unknown, status = 200) {
     status, headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
+
+function spreadAcrossFolders<T extends { folder: string }>(items: T[], targetCount: number): T[] {
+  const byFolder = new Map<string, T[]>();
+  for (const it of items) {
+    if (!byFolder.has(it.folder)) byFolder.set(it.folder, []);
+    byFolder.get(it.folder)!.push(it);
+  }
+  const out: T[] = [];
+  const folders = [...byFolder.keys()];
+  let i = 0;
+  while (out.length < targetCount && folders.some((f) => byFolder.get(f)!.length > 0)) {
+    const bucket = byFolder.get(folders[i % folders.length])!;
+    if (bucket.length > 0) out.push(bucket.shift()!);
+    i++;
+  }
+  return out;
