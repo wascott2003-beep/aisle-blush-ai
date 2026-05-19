@@ -153,7 +153,7 @@ const Index = () => {
     return (
       <>
         <AppNav currentPage={page} onNavigate={(p) => { setPage(p); setShowReel(false); setSelectedWeddingId(null); }} onLogout={handleLogout} />
-        <ReelCreator weddingName={selectedWedding.name} onBack={() => setShowReel(false)} />
+        <ReelCreator weddingId={selectedWedding.id} weddingName={selectedWedding.name} onBack={() => setShowReel(false)} />
       </>
     );
   }
