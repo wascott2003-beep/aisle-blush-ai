@@ -183,19 +183,14 @@ async function submitToShotstack(
 
   const tracks: object[] = [
     { clips: shotstackClips },
-    {
-      clips: [{
-        asset: { type: "audio", src: musicSrc, volume: 0.9 },
-        start: 0,
-        length: cursor,
-        // Soft fade in at the start and fade out at the end.
-        transition: { in: "fade", out: "fade" },
-      }],
-    },
   ];
 
   const payload = {
-    timeline: { background: "#000000", tracks },
+    timeline: {
+      background: "#000000",
+      soundtrack: { src: musicSrc, effect: "fadeInFadeOut", volume: 0.9 },
+      tracks,
+    },
     output: { format: "mp4", resolution: "hd", aspectRatio: "9:16" },
   };
 
@@ -215,7 +210,7 @@ async function submitToShotstack(
     .from("reels")
     .insert({
       wedding_id: weddingId, mood, length_seconds: length,
-      status: "rendering", timeline: { clips, transition },
+      status: "rendering", timeline: { clips, transition: transitionName },
       music_storage_path: musicStoragePath || null,
       shotstack_render_id: renderId,
     })
