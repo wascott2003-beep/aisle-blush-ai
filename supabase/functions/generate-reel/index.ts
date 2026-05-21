@@ -185,10 +185,19 @@ async function submitToShotstack(
     { clips: shotstackClips },
     {
       clips: [{
-        asset: { type: "audio", src: musicSrc, volume: 0.9 },
+        asset: {
+          type: "audio",
+          src: musicSrc,
+          volume: 0.9,
+          // Volume keyframes give us a soft fade-in at the start and
+          // fade-out at the end (Shotstack `effect` only supports zoom/slide).
+          volumeEffects: [
+            { effect: "fadeIn", start: 0, length: 1.5 },
+            { effect: "fadeOut", start: Math.max(0, cursor - 1.5), length: 1.5 },
+          ],
+        },
         start: 0,
         length: cursor,
-        effect: "fadeInFadeOut", // soft fade in at start, fade out at end
       }],
     },
   ];
