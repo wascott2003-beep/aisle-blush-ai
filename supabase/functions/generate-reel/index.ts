@@ -74,13 +74,20 @@ Deno.serve(async (req) => {
     }
 
     const prompt = `You are an expert wedding/event highlight reel editor.
-Pick the best clips from the list to build a ${length}-second reel with a "${mood}" mood.
+Build a ${length}-second highlight reel with a "${mood}" mood.
+
+CLIP PRIORITIZATION (in this order):
+1. MOVEMENT FIRST: Prefer clips that show motion — camera pans, dancing, walking down the aisle, action, gestures. Static or shaky still shots are last resort.
+2. FACES & EMOTION: Then prioritize clips showing faces and emotional moments — smiles, tears, laughter, hugs, close-ups of people reacting.
+3. STORY VARIETY: Spread picks across different folders so the reel tells a chronological story from start to finish (e.g. getting-ready → ceremony → reception). Order returned clips in story sequence.
+4. AVOID REPETITION: Never pick two near-identical clips back-to-back. Vary subject, angle, and folder between consecutive picks.
+
 Rules:
 - Total trimmed length must sum to ~${length} seconds (±2s).
-- Use variety across folders when possible.
 - Per-clip on-screen length 1.5–5 seconds (shorter for upbeat moods, longer for cinematic/emotional).
-- Choose clips whose thumbnail best matches the mood.
 - Use 6–14 clips total depending on length and pacing.
+- Return clips in the exact order they should play.
+
 Return JSON only: {"clips":[{"mediaId":"<id>","trimStart":0,"length":2.5,"reason":"..."}]}
 Available clips (with folder + thumbnail URL):
 ${candidateList.map((c) => `- ${c.id} [${c.folder}] dur=${c.duration ?? "?"}s thumb=${c.thumbnail}`).join("\n")}`;
