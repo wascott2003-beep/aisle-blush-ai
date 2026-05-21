@@ -188,7 +188,8 @@ async function submitToShotstack(
         asset: { type: "audio", src: musicSrc, volume: 0.9 },
         start: 0,
         length: cursor,
-        effect: "fadeInFadeOut", // soft fade in at start, fade out at end
+        // Soft fade in at the start and fade out at the end.
+        transition: { in: "fade", out: "fade" },
       }],
     },
   ];
