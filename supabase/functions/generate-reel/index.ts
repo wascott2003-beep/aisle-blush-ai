@@ -74,13 +74,20 @@ Deno.serve(async (req) => {
     }
 
     const prompt = `You are an expert wedding/event highlight reel editor.
-Pick the best clips from the list to build a ${length}-second reel with a "${mood}" mood.
+Build a ${length}-second highlight reel with a "${mood}" mood.
+
+CLIP PRIORITIZATION (in this order):
+1. MOVEMENT FIRST: Prefer clips that show motion — camera pans, dancing, walking down the aisle, action, gestures. Static or shaky still shots are last resort.
+2. FACES & EMOTION: Then prioritize clips showing faces and emotional moments — smiles, tears, laughter, hugs, close-ups of people reacting.
+3. STORY VARIETY: Spread picks across different folders so the reel tells a chronological story from start to finish (e.g. getting-ready → ceremony → reception). Order returned clips in story sequence.
+4. AVOID REPETITION: Never pick two near-identical clips back-to-back. Vary subject, angle, and folder between consecutive picks.
+
 Rules:
 - Total trimmed length must sum to ~${length} seconds (±2s).
-- Use variety across folders when possible.
 - Per-clip on-screen length 1.5–5 seconds (shorter for upbeat moods, longer for cinematic/emotional).
-- Choose clips whose thumbnail best matches the mood.
 - Use 6–14 clips total depending on length and pacing.
+- Return clips in the exact order they should play.
+
 Return JSON only: {"clips":[{"mediaId":"<id>","trimStart":0,"length":2.5,"reason":"..."}]}
 Available clips (with folder + thumbnail URL):
 ${candidateList.map((c) => `- ${c.id} [${c.folder}] dur=${c.duration ?? "?"}s thumb=${c.thumbnail}`).join("\n")}`;
@@ -133,23 +140,29 @@ async function submitToShotstack(
   videos: Array<{ id: string; storage_path: string; duration: number | null }>,
 ) {
   const videoMap = new Map(videos.map((v) => [v.id, v]));
-  const transitionsByMood: Record<Mood, string> = {
-    "Romantic": "fade", "Cinematic": "fade", "Emotional": "fade", "Fun & Upbeat": "wipeRight",
-  };
-  const transition = transitionsByMood[mood] || "fade";
+  // Smooth 0.5s cross-fade dissolves between every clip (subtle + elegant).
+  // Shotstack's "fadeFast" applies a ~0.5s fade. Setting in+out on each clip
+  // means the tail of clip N overlaps the head of clip N+1 as a crossfade.
+  const transitionName = "fadeFast";
 
   let cursor = 0;
   const shotstackClips = clips
     .map((c) => {
       const v = videoMap.get(c.mediaId);
       if (!v) return null;
-      const clipLen = Math.max(1, Math.min(c.length || 2.5, 6));
+      const clipLen = Math.max(1.5, Math.min(c.length || 2.5, 6));
       const start = cursor;
       cursor += clipLen;
       return {
-        asset: { type: "video", src: publicUrl(v.storage_path), trim: Math.max(0, c.trimStart || 0) },
-        start, length: clipLen,
-        transition: { in: transition, out: transition },
+        asset: {
+          type: "video",
+          src: publicUrl(v.storage_path),
+          trim: Math.max(0, c.trimStart || 0),
+          volume: 0, // mute the original camera audio
+        },
+        start,
+        length: clipLen,
+        transition: { in: transitionName, out: transitionName },
       };
     })
     .filter(Boolean) as object[];
@@ -158,15 +171,27 @@ async function submitToShotstack(
     return json({ error: "No valid clips after mapping." }, 500);
   }
 
-  const tracks: object[] = [{ clips: shotstackClips }];
-  if (musicStoragePath) {
-    tracks.push({
+  // Pick a royalty-free background track to match the mood. Users can still
+  // override by passing their own musicStoragePath (uploaded music).
+  const moodMusic: Record<Mood, string> = {
+    "Romantic": "https://shotstack-assets.s3-ap-southeast-2.amazonaws.com/music/unminus/palmtrees.mp3",
+    "Fun & Upbeat": "https://shotstack-assets.s3-ap-southeast-2.amazonaws.com/music/unminus/lit.mp3",
+    "Cinematic": "https://shotstack-assets.s3-ap-southeast-2.amazonaws.com/music/unminus/gladiator.mp3",
+    "Emotional": "https://shotstack-assets.s3-ap-southeast-2.amazonaws.com/music/unminus/sunrise.mp3",
+  };
+  const musicSrc = musicStoragePath ? publicUrl(musicStoragePath) : moodMusic[mood];
+
+  const tracks: object[] = [
+    { clips: shotstackClips },
+    {
       clips: [{
-        asset: { type: "audio", src: publicUrl(musicStoragePath) },
-        start: 0, length: cursor,
+        asset: { type: "audio", src: musicSrc, volume: 0.9 },
+        start: 0,
+        length: cursor,
+        effect: "fadeInFadeOut", // soft fade in at start, fade out at end
       }],
-    });
-  }
+    },
+  ];
 
   const payload = {
     timeline: { background: "#000000", tracks },
