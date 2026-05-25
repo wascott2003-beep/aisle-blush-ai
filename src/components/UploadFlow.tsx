@@ -68,6 +68,7 @@ const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const mixedInputRef = useRef<HTMLInputElement>(null);
 
   const photoCount = photoSelection?.length ?? 0;
   const videoCount = videoSelection?.length ?? 0;
