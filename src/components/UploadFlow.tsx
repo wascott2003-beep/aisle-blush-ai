@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, CheckCircle, Upload, Image as ImageIcon, Video as VideoIcon } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Upload, Image as ImageIcon, Video as VideoIcon, Images as ImagesIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
@@ -68,6 +68,7 @@ const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const mixedInputRef = useRef<HTMLInputElement>(null);
 
   const photoCount = photoSelection?.length ?? 0;
   const videoCount = videoSelection?.length ?? 0;
@@ -96,11 +97,33 @@ const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName
     setOversizeCount(0);
   };
 
+  const handleMixedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const list = e.target.files;
+    if (!list || list.length === 0) return;
+    // Split into photos vs videos by MIME type into separate FileLists so the
+    // rest of the pipeline (which already handles both buckets) just works.
+    const photoDT = new DataTransfer();
+    const videoDT = new DataTransfer();
+    for (let i = 0; i < list.length; i++) {
+      const f = list[i];
+      if (f.type.startsWith('video/')) videoDT.items.add(f);
+      else if (f.type.startsWith('image/')) photoDT.items.add(f);
+    }
+    setPhotoSelection(photoDT.files.length > 0 ? photoDT.files : null);
+    setVideoSelection(videoDT.files.length > 0 ? videoDT.files : null);
+    setErrorMessage(null);
+    setFailedCount(0);
+    setFlaggedCount(0);
+    setSkippedCount(0);
+    setOversizeCount(0);
+  };
+
   const clearSelection = () => {
     setPhotoSelection(null);
     setVideoSelection(null);
     if (photoInputRef.current) photoInputRef.current.value = '';
     if (videoInputRef.current) videoInputRef.current.value = '';
+    if (mixedInputRef.current) mixedInputRef.current.value = '';
   };
 
   // Iterate FileList lazily — yields a File one at a time without converting
@@ -385,8 +408,8 @@ const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName
             <h1 className="text-3xl font-heading font-semibold text-foreground">{isAddMore ? 'Add More Media' : 'Upload Media'}</h1>
             <p className="text-muted-foreground font-body mt-1">{isAddMore ? existingWeddingName : name} · {new Date(isAddMore ? existingWeddingDate! : date).toLocaleDateString()}</p>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-rose-gold/50 transition-colors bg-card">
+          <div className="grid grid-cols-3 gap-3">
+            <label className="block border-2 border-dashed border-border rounded-xl p-4 text-center cursor-pointer hover:border-rose-gold/50 transition-colors bg-card">
               <input
                 ref={photoInputRef}
                 type="file"
@@ -395,13 +418,13 @@ const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName
                 onChange={handlePhotoChange}
                 className="hidden"
               />
-              <ImageIcon className="w-8 h-8 text-rose-gold/60 mx-auto mb-2" />
-              <p className="font-body text-foreground font-medium text-sm">Upload Photos</p>
-              <p className="text-xs text-muted-foreground font-body mt-1">
-                {photoCount > 0 ? `${photoCount} selected` : 'Choose images'}
+              <ImageIcon className="w-7 h-7 text-rose-gold/60 mx-auto mb-2" />
+              <p className="font-body text-foreground font-medium text-xs">Photos</p>
+              <p className="text-[11px] text-muted-foreground font-body mt-1">
+                {photoCount > 0 ? `${photoCount} selected` : 'Images only'}
               </p>
             </label>
-            <label className="block border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-rose-gold/50 transition-colors bg-card">
+            <label className="block border-2 border-dashed border-border rounded-xl p-4 text-center cursor-pointer hover:border-rose-gold/50 transition-colors bg-card">
               <input
                 ref={videoInputRef}
                 type="file"
@@ -410,10 +433,25 @@ const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName
                 onChange={handleVideoChange}
                 className="hidden"
               />
-              <VideoIcon className="w-8 h-8 text-rose-gold/60 mx-auto mb-2" />
-              <p className="font-body text-foreground font-medium text-sm">Upload Videos</p>
-              <p className="text-xs text-muted-foreground font-body mt-1">
-                {videoCount > 0 ? `${videoCount} selected` : 'Choose videos'}
+              <VideoIcon className="w-7 h-7 text-rose-gold/60 mx-auto mb-2" />
+              <p className="font-body text-foreground font-medium text-xs">Videos</p>
+              <p className="text-[11px] text-muted-foreground font-body mt-1">
+                {videoCount > 0 ? `${videoCount} selected` : 'Videos only'}
+              </p>
+            </label>
+            <label className="block border-2 border-dashed border-rose-gold/40 rounded-xl p-4 text-center cursor-pointer hover:border-rose-gold/70 transition-colors bg-card">
+              <input
+                ref={mixedInputRef}
+                type="file"
+                multiple
+                accept="image/*,video/*"
+                onChange={handleMixedChange}
+                className="hidden"
+              />
+              <ImagesIcon className="w-7 h-7 text-rose-gold/60 mx-auto mb-2" />
+              <p className="font-body text-foreground font-medium text-xs">Photos + Videos</p>
+              <p className="text-[11px] text-muted-foreground font-body mt-1">
+                {totalSelected > 0 && (photoCount > 0 && videoCount > 0) ? `${totalSelected} selected` : 'Pick both at once'}
               </p>
             </label>
           </div>
