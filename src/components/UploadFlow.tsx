@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, CheckCircle, Upload, Image as ImageIcon, Video as VideoIcon } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Upload, Image as ImageIcon, Video as VideoIcon, Images as ImagesIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
