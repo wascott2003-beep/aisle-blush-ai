@@ -96,11 +96,33 @@ const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName
     setOversizeCount(0);
   };
 
+  const handleMixedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const list = e.target.files;
+    if (!list || list.length === 0) return;
+    // Split into photos vs videos by MIME type into separate FileLists so the
+    // rest of the pipeline (which already handles both buckets) just works.
+    const photoDT = new DataTransfer();
+    const videoDT = new DataTransfer();
+    for (let i = 0; i < list.length; i++) {
+      const f = list[i];
+      if (f.type.startsWith('video/')) videoDT.items.add(f);
+      else if (f.type.startsWith('image/')) photoDT.items.add(f);
+    }
+    setPhotoSelection(photoDT.files.length > 0 ? photoDT.files : null);
+    setVideoSelection(videoDT.files.length > 0 ? videoDT.files : null);
+    setErrorMessage(null);
+    setFailedCount(0);
+    setFlaggedCount(0);
+    setSkippedCount(0);
+    setOversizeCount(0);
+  };
+
   const clearSelection = () => {
     setPhotoSelection(null);
     setVideoSelection(null);
     if (photoInputRef.current) photoInputRef.current.value = '';
     if (videoInputRef.current) videoInputRef.current.value = '';
+    if (mixedInputRef.current) mixedInputRef.current.value = '';
   };
 
   // Iterate FileList lazily — yields a File one at a time without converting
