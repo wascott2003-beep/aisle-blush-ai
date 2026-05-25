@@ -408,8 +408,8 @@ const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName
             <h1 className="text-3xl font-heading font-semibold text-foreground">{isAddMore ? 'Add More Media' : 'Upload Media'}</h1>
             <p className="text-muted-foreground font-body mt-1">{isAddMore ? existingWeddingName : name} · {new Date(isAddMore ? existingWeddingDate! : date).toLocaleDateString()}</p>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-rose-gold/50 transition-colors bg-card">
+          <div className="grid grid-cols-3 gap-3">
+            <label className="block border-2 border-dashed border-border rounded-xl p-4 text-center cursor-pointer hover:border-rose-gold/50 transition-colors bg-card">
               <input
                 ref={photoInputRef}
                 type="file"
@@ -418,13 +418,13 @@ const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName
                 onChange={handlePhotoChange}
                 className="hidden"
               />
-              <ImageIcon className="w-8 h-8 text-rose-gold/60 mx-auto mb-2" />
-              <p className="font-body text-foreground font-medium text-sm">Upload Photos</p>
-              <p className="text-xs text-muted-foreground font-body mt-1">
-                {photoCount > 0 ? `${photoCount} selected` : 'Choose images'}
+              <ImageIcon className="w-7 h-7 text-rose-gold/60 mx-auto mb-2" />
+              <p className="font-body text-foreground font-medium text-xs">Photos</p>
+              <p className="text-[11px] text-muted-foreground font-body mt-1">
+                {photoCount > 0 ? `${photoCount} selected` : 'Images only'}
               </p>
             </label>
-            <label className="block border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-rose-gold/50 transition-colors bg-card">
+            <label className="block border-2 border-dashed border-border rounded-xl p-4 text-center cursor-pointer hover:border-rose-gold/50 transition-colors bg-card">
               <input
                 ref={videoInputRef}
                 type="file"
@@ -433,10 +433,25 @@ const UploadFlow = ({ onBack, onComplete, existingWeddingId, existingWeddingName
                 onChange={handleVideoChange}
                 className="hidden"
               />
-              <VideoIcon className="w-8 h-8 text-rose-gold/60 mx-auto mb-2" />
-              <p className="font-body text-foreground font-medium text-sm">Upload Videos</p>
-              <p className="text-xs text-muted-foreground font-body mt-1">
-                {videoCount > 0 ? `${videoCount} selected` : 'Choose videos'}
+              <VideoIcon className="w-7 h-7 text-rose-gold/60 mx-auto mb-2" />
+              <p className="font-body text-foreground font-medium text-xs">Videos</p>
+              <p className="text-[11px] text-muted-foreground font-body mt-1">
+                {videoCount > 0 ? `${videoCount} selected` : 'Videos only'}
+              </p>
+            </label>
+            <label className="block border-2 border-dashed border-rose-gold/40 rounded-xl p-4 text-center cursor-pointer hover:border-rose-gold/70 transition-colors bg-card">
+              <input
+                ref={mixedInputRef}
+                type="file"
+                multiple
+                accept="image/*,video/*"
+                onChange={handleMixedChange}
+                className="hidden"
+              />
+              <ImagesIcon className="w-7 h-7 text-rose-gold/60 mx-auto mb-2" />
+              <p className="font-body text-foreground font-medium text-xs">Photos + Videos</p>
+              <p className="text-[11px] text-muted-foreground font-body mt-1">
+                {totalSelected > 0 && (photoCount > 0 && videoCount > 0) ? `${totalSelected} selected` : 'Pick both at once'}
               </p>
             </label>
           </div>
