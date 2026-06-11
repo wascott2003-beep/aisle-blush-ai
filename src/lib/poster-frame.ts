@@ -72,45 +72,98 @@ export async function generateVideoPoster(file: File): Promise<Blob | null> {
   return poster;
 }
 
-// Downscale a photo to a smaller preview JPEG so the grid loads instantly.
-const PHOTO_PREVIEW_MAX_DIM = 1024;
-const PHOTO_PREVIEW_QUALITY = 0.78;
+// A decoded image plus the metadata needed to draw it to a canvas, along with
+// a disposer that frees the underlying bitmap/object-URL. Decoding a full-res
+// photo is the expensive part of upload prep, so we decode each file ONCE and
+// reuse the result for both quality analysis and preview generation.
+export interface DecodedImage {
+  source: CanvasImageSource;
+  width: number;
+  height: number;
+  /** Release the decoded bitmap immediately rather than waiting for GC. */
+  close(): void;
+}
 
-export async function generatePhotoPreview(file: File): Promise<Blob | null> {
+/**
+ * Decode an image file a single time into a disposable handle.
+ *
+ * Prefers createImageBitmap: it decodes off the main thread (less UI jank on
+ * big batches) and returns a bitmap we can free deterministically via close(),
+ * so peak memory stays bounded even when many photos are prepared in parallel.
+ * Falls back to an <img> element for formats createImageBitmap can't handle
+ * (e.g. HEIC on Safari, which decodes via the platform image pipeline).
+ */
+export async function decodeImageFile(file: File | Blob): Promise<DecodedImage | null> {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(file);
+      return {
+        source: bitmap,
+        width: bitmap.width,
+        height: bitmap.height,
+        close: () => bitmap.close(),
+      };
+    } catch {
+      // Fall through to the <img> path below.
+    }
+  }
+  return decodeViaImageElement(file);
+}
+
+function decodeViaImageElement(file: File | Blob): Promise<DecodedImage | null> {
   return new Promise((resolve) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     let settled = false;
 
-    const finish = (value: Blob | null) => {
+    const fail = () => {
       if (settled) return;
       settled = true;
       URL.revokeObjectURL(url);
-      resolve(value);
+      resolve(null);
     };
 
     img.onload = () => {
-      try {
-        const w = img.naturalWidth;
-        const h = img.naturalHeight;
-        if (!w || !h) return finish(null);
-        const scale = Math.min(1, PHOTO_PREVIEW_MAX_DIM / Math.max(w, h));
-        // If photo is already small, skip — let the original act as preview.
-        if (scale >= 1 && file.size < 500 * 1024) return finish(null);
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(w * scale);
-        canvas.height = Math.round(h * scale);
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return finish(null);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob((blob) => finish(blob), 'image/jpeg', PHOTO_PREVIEW_QUALITY);
-      } catch {
-        finish(null);
-      }
+      if (settled) return;
+      const width = img.naturalWidth;
+      const height = img.naturalHeight;
+      if (!width || !height) return fail();
+      settled = true;
+      // Defer revoking the object URL until the caller is done drawing.
+      resolve({ source: img, width, height, close: () => URL.revokeObjectURL(url) });
     };
 
-    img.onerror = () => finish(null);
+    img.onerror = fail;
     img.src = url;
-    window.setTimeout(() => finish(null), POSTER_TIMEOUT_MS);
+    window.setTimeout(fail, POSTER_TIMEOUT_MS);
+  });
+}
+
+// Downscale a photo to a smaller preview JPEG so the grid loads instantly.
+const PHOTO_PREVIEW_MAX_DIM = 1024;
+const PHOTO_PREVIEW_QUALITY = 0.78;
+
+/**
+ * Build a small preview JPEG from an already-decoded image. Returns null when
+ * the photo is already small enough to act as its own preview (so the original
+ * is used directly), or if the canvas can't be created.
+ */
+export async function generatePhotoPreview(
+  decoded: DecodedImage,
+  originalSize: number,
+): Promise<Blob | null> {
+  const { source, width: w, height: h } = decoded;
+  if (!w || !h) return null;
+  const scale = Math.min(1, PHOTO_PREVIEW_MAX_DIM / Math.max(w, h));
+  // If photo is already small, skip — let the original act as preview.
+  if (scale >= 1 && originalSize < 500 * 1024) return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(w * scale);
+  canvas.height = Math.round(h * scale);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), 'image/jpeg', PHOTO_PREVIEW_QUALITY);
   });
 }
