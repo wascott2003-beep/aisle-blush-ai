@@ -23,7 +23,7 @@ import {
   insertMediaItems,
   uploadMediaFile,
 } from '@/lib/supabase-helpers';
-import { generatePhotoPreview, extractVideoMeta } from '@/lib/poster-frame';
+import { generatePhotoPreview, extractVideoMeta, decodeImageFile } from '@/lib/poster-frame';
 import { enqueueUpload, enqueueUploads } from '@/lib/upload-queue';
 
 interface UploadFlowProps {
@@ -565,8 +565,23 @@ async function prepareAndQueue(weddingId: string, file: File, _fileIndex: number
   let previewBlob: Blob | null = null;
 
   if (isPhoto) {
-    flagReason = await analyzeImageQuality(file).catch(() => null);
-    previewBlob = await generatePhotoPreview(file).catch(() => null);
+    // Decode the photo a SINGLE time and reuse the bitmap for both quality
+    // analysis and preview generation. Decoding full-resolution photos is the
+    // expensive step; doing it twice per file (and holding two full-res
+    // bitmaps in memory) is what bogged the app down on large batches.
+    const decoded = await decodeImageFile(file).catch(() => null);
+    if (decoded) {
+      try {
+        flagReason = analyzeImageQuality(decoded);
+        previewBlob = await generatePhotoPreview(decoded, file.size);
+      } catch (err) {
+        console.warn('Image processing failed (continuing):', err);
+      } finally {
+        // Free the decoded bitmap now instead of waiting for GC, so peak
+        // memory stays bounded while many photos are prepared in parallel.
+        decoded.close();
+      }
+    }
   }
 
   if (isVideo) {
