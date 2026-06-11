@@ -1,20 +1,10 @@
--- Client galleries: a photographer can share a single gallery per wedding via
--- an unguessable token. The client opens /gallery/:token (unauthenticated) and
--- can view + download the photos.
---
--- Selection model: a gallery includes ALL completed photos for its wedding by
--- default. The photographer "deselects" photos by recording them as exclusions,
--- so newly uploaded photos appear in the gallery automatically.
-
 CREATE TABLE public.galleries (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   wedding_id UUID NOT NULL REFERENCES public.weddings(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
-  -- 32 hex chars (~122 bits) — unguessable share token used in the public URL.
   share_token TEXT NOT NULL UNIQUE DEFAULT replace(gen_random_uuid()::text, '-', ''),
   is_enabled BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-  -- One gallery per wedding keeps the mental model simple.
   UNIQUE (wedding_id)
 );
 
@@ -27,10 +17,6 @@ CREATE TABLE public.gallery_excluded_items (
 ALTER TABLE public.galleries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.gallery_excluded_items ENABLE ROW LEVEL SECURITY;
 
--- Photographers (owners) manage their own galleries via wedding ownership.
--- Note: there is intentionally NO anon SELECT policy — the public read path
--- goes exclusively through get_gallery_by_token() below, so galleries cannot
--- be enumerated even though the bucket is public.
 CREATE POLICY "Owners manage galleries"
   ON public.galleries FOR ALL
   USING (EXISTS (
@@ -57,9 +43,6 @@ CREATE POLICY "Owners manage gallery exclusions"
 
 CREATE INDEX idx_galleries_wedding_id ON public.galleries(wedding_id);
 
--- Public read: returns a gallery (and its included photos) for a share token,
--- bypassing RLS but ONLY for the row matching the token. Runs as the function
--- owner (SECURITY DEFINER); search_path is pinned to prevent hijacking.
 CREATE OR REPLACE FUNCTION public.get_gallery_by_token(p_token TEXT)
 RETURNS JSONB
 LANGUAGE sql
@@ -94,6 +77,5 @@ AS $$
   WHERE g.share_token = p_token AND g.is_enabled = true;
 $$;
 
--- Lock down execution: only callable, never readable as a table.
 REVOKE ALL ON FUNCTION public.get_gallery_by_token(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_gallery_by_token(TEXT) TO anon, authenticated;
