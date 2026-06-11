@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
+import GalleryView from "./pages/GalleryView.tsx";
 
 const queryClient = new QueryClient();
 
@@ -18,6 +19,8 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          {/* Public client-facing gallery (no auth) */}
+          <Route path="/gallery/:token" element={<GalleryView />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

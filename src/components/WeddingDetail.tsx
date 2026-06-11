@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Sparkles, Heart, Camera, PartyPopper, Gem, FolderOpen, Inbox, AlertTriangle, Image as ImageIcon, Film, Clapperboard, Download, Loader2, ArrowRightLeft, Plus, Upload } from 'lucide-react';
+import { ArrowLeft, Sparkles, Heart, Camera, PartyPopper, Gem, FolderOpen, Inbox, AlertTriangle, Image as ImageIcon, Film, Clapperboard, Download, Loader2, ArrowRightLeft, Plus, Upload, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Wedding, MediaFolder, MediaItem, Vendor } from '@/lib/types';
 import MediaViewer from '@/components/MediaViewer';
+import ClientGalleryDialog from '@/components/ClientGalleryDialog';
 import VendorSection from '@/components/VendorSection';
 import BackgroundUploadIndicator from '@/components/BackgroundUploadIndicator';
 import SortFootageButton from '@/components/SortFootageButton';
@@ -38,6 +39,12 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
   const [showAddFolder, setShowAddFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [addingFolder, setAddingFolder] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
+
+  // All completed photos across folders — the candidate set for the client gallery.
+  const galleryPhotos = wedding.folders
+    .flatMap((f) => f.items)
+    .filter((it) => it.type === 'photo' && it.uploadStatus !== 'pending');
 
   // Build the full list of folder names for move-to menu
   const allFolderNames = wedding.folders.map((f) => f.name);
@@ -261,6 +268,14 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
             Create Reel
           </Button>
           <Button
+            onClick={() => setShowGallery(true)}
+            variant="outline"
+            className="border-rose-gold text-rose-gold hover:bg-accent font-body"
+          >
+            <Share2 className="w-4 h-4 mr-2" />
+            Client Gallery
+          </Button>
+          <Button
             onClick={handleExport}
             disabled={exporting || wedding.mediaCount === 0}
             variant="outline"
@@ -370,6 +385,15 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Client Gallery Dialog */}
+      <ClientGalleryDialog
+        weddingId={wedding.id}
+        weddingName={wedding.name}
+        photos={galleryPhotos}
+        open={showGallery}
+        onOpenChange={setShowGallery}
+      />
 
       {/* Vendors Section */}
       <VendorSection
