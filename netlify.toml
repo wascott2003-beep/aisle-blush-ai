@@ -1,0 +1,17 @@
+# Netlify configuration for the Aisle AI Vite + React app.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA fallback: this is a single-page app with client-side routing
+# (react-router). Without this, directly visiting a deep link like
+# /gallery/<token> or /reset-password would 404 on Netlify. Rewriting all
+# unmatched paths to index.html lets the React router handle them.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
