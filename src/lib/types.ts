@@ -35,6 +35,14 @@ export interface MediaFolder {
   items: MediaItem[];
 }
 
+export type RejectReason =
+  | 'blurry'
+  | 'too_dark'
+  | 'overexposed'
+  | 'duplicate_burst'
+  | 'eyes_closed'
+  | 'short_clip';
+
 export interface MediaItem {
   id: string;
   type: 'photo' | 'video';
@@ -44,6 +52,9 @@ export interface MediaItem {
   folder: string;
   flagReason?: 'short_clip' | 'low_quality_photo';
   uploadStatus?: 'pending' | 'complete' | 'failed';
+  capturedAt?: string; // ISO timestamp of when the media was shot, if known
+  rejectReason?: RejectReason; // why it was culled into the Review folder
+  segmentId?: string; // timeline segment this item belongs to, if placed
 }
 
 export type AppView = 'login' | 'dashboard' | 'wedding' | 'upload' | 'review' | 'settings';

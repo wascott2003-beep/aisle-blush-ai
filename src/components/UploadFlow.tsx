@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { analyzeImageQuality } from '@/lib/image-quality';
+import { extractCaptureTime } from '@/lib/capture-time';
 import { supabase } from '@/integrations/supabase/client';
 import {
   createWeddingInDb,
@@ -561,8 +562,16 @@ async function prepareAndQueue(weddingId: string, file: File, _fileIndex: number
   const folder = UNSORTED_FOLDER;
 
   let flagReason: string | null = null;
+  let rejectReason: string | null = null;
+  let sharpness: number | null = null;
   let duration: number | null = null;
   let previewBlob: Blob | null = null;
+
+  // Capture time (when the media was shot) for later timeline placement.
+  // Reliable for photos (EXIF); best-effort for videos; null if unavailable.
+  const capture = await extractCaptureTime(file).catch(() => null);
+  const capturedAt = capture?.date.toISOString() ?? null;
+  const capturedAtSource = capture?.source ?? null;
 
   if (isPhoto) {
     // Decode the photo a SINGLE time and reuse the bitmap for both quality
@@ -572,7 +581,12 @@ async function prepareAndQueue(weddingId: string, file: File, _fileIndex: number
     const decoded = await decodeImageFile(file).catch(() => null);
     if (decoded) {
       try {
-        flagReason = analyzeImageQuality(decoded);
+        const quality = analyzeImageQuality(decoded);
+        sharpness = quality.sharpness;
+        if (quality.flag) {
+          rejectReason = quality.flag; // granular: blurry / too_dark / overexposed
+          flagReason = 'low_quality_photo'; // back-compat with existing flagged review
+        }
         previewBlob = await generatePhotoPreview(decoded, file.size);
       } catch (err) {
         console.warn('Image processing failed (continuing):', err);
@@ -589,7 +603,10 @@ async function prepareAndQueue(weddingId: string, file: File, _fileIndex: number
     const meta = await extractVideoMeta(file).catch(() => ({ duration: null, poster: null }));
     duration = meta.duration;
     previewBlob = meta.poster;
-    if (duration !== null && duration < 3) flagReason = 'short_clip';
+    if (duration !== null && duration < 2) {
+      flagReason = 'short_clip';
+      rejectReason = 'short_clip';
+    }
   }
 
   // Upload the small preview first so the thumbnail is available immediately.
@@ -620,6 +637,10 @@ async function prepareAndQueue(weddingId: string, file: File, _fileIndex: number
       upload_status: 'complete',
       flag_reason: flagReason,
       duration,
+      captured_at: capturedAt,
+      captured_at_source: capturedAtSource,
+      reject_reason: rejectReason,
+      sharpness,
     });
     void ext;
     return { flagged: Boolean(flagReason) };
@@ -637,6 +658,10 @@ async function prepareAndQueue(weddingId: string, file: File, _fileIndex: number
     upload_status: 'pending',
     flag_reason: flagReason,
     duration,
+    captured_at: capturedAt,
+    captured_at_source: capturedAtSource,
+    reject_reason: rejectReason,
+    sharpness,
   });
 
   enqueueUpload({

@@ -59,6 +59,11 @@ export async function insertMediaItem(item: {
   upload_status?: 'pending' | 'complete';
   flag_reason?: string | null;
   duration?: number | null;
+  captured_at?: string | null;
+  captured_at_source?: string | null;
+  reject_reason?: string | null;
+  sharpness?: number | null;
+  phash?: string | null;
 }): Promise<string> {
   const { data, error } = await supabase
     .from('media_items')
@@ -79,6 +84,11 @@ export async function insertMediaItems(items: Array<{
   upload_status?: 'pending' | 'complete';
   flag_reason?: string | null;
   duration?: number | null;
+  captured_at?: string | null;
+  captured_at_source?: string | null;
+  reject_reason?: string | null;
+  sharpness?: number | null;
+  phash?: string | null;
 }>) {
   if (items.length === 0) return;
   const { error } = await supabase.from('media_items').insert(items);
@@ -129,6 +139,11 @@ export async function fetchWeddings(userId: string): Promise<Wedding[]> {
       const previewPath = (m as { preview_storage_path?: string | null }).preview_storage_path;
       const status = (m as { upload_status?: string }).upload_status as MediaItem['uploadStatus'] | undefined;
       const thumbPath = previewPath || m.storage_path;
+      const mm = m as {
+        captured_at?: string | null;
+        reject_reason?: string | null;
+        segment_id?: string | null;
+      };
       return {
         id: m.id,
         type: m.type as 'photo' | 'video',
@@ -138,6 +153,9 @@ export async function fetchWeddings(userId: string): Promise<Wedding[]> {
         duration: m.duration ?? undefined,
         flagReason: m.flag_reason as MediaItem['flagReason'],
         uploadStatus: status || 'complete',
+        capturedAt: mm.captured_at ?? undefined,
+        rejectReason: (mm.reject_reason ?? undefined) as MediaItem['rejectReason'],
+        segmentId: mm.segment_id ?? undefined,
       };
     });
 
