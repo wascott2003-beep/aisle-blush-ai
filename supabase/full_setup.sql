@@ -225,3 +225,46 @@ CREATE POLICY "Anyone can view media" ON storage.objects FOR SELECT USING (
 CREATE POLICY "Users can delete their media" ON storage.objects FOR DELETE USING (
   bucket_id = 'wedding-media' AND auth.role() = 'authenticated'
 );
+
+-- ---------------------------------------------------------------------------
+-- Auto-Organize foundations (PR #1): capture time, granular cull reasons, and
+-- the wedding day-of timeline.
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE public.media_items ADD COLUMN captured_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.media_items ADD COLUMN captured_at_source TEXT
+  CHECK (captured_at_source IS NULL OR captured_at_source IN ('exif', 'video_meta', 'file_mtime'));
+ALTER TABLE public.media_items ADD COLUMN reject_reason TEXT
+  CHECK (reject_reason IS NULL OR reject_reason IN
+    ('blurry', 'too_dark', 'overexposed', 'duplicate_burst', 'eyes_closed', 'short_clip'));
+ALTER TABLE public.media_items ADD COLUMN phash TEXT;
+ALTER TABLE public.media_items ADD COLUMN sharpness REAL;
+
+CREATE TABLE public.timeline_segments (
+  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  wedding_id UUID NOT NULL REFERENCES public.weddings(id) ON DELETE CASCADE,
+  label TEXT NOT NULL,
+  start_time TIMESTAMP WITH TIME ZONE,
+  end_time TIMESTAMP WITH TIME ZONE,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_timeline_segments_wedding ON public.timeline_segments (wedding_id, sort_order);
+
+ALTER TABLE public.media_items
+  ADD COLUMN segment_id UUID REFERENCES public.timeline_segments(id) ON DELETE SET NULL;
+CREATE INDEX idx_media_items_segment ON public.media_items (segment_id);
+
+ALTER TABLE public.timeline_segments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view their segments" ON public.timeline_segments FOR SELECT USING (
+  EXISTS (SELECT 1 FROM public.weddings WHERE id = timeline_segments.wedding_id AND user_id = auth.uid())
+);
+CREATE POLICY "Users can insert their segments" ON public.timeline_segments FOR INSERT WITH CHECK (
+  EXISTS (SELECT 1 FROM public.weddings WHERE id = timeline_segments.wedding_id AND user_id = auth.uid())
+);
+CREATE POLICY "Users can update their segments" ON public.timeline_segments FOR UPDATE USING (
+  EXISTS (SELECT 1 FROM public.weddings WHERE id = timeline_segments.wedding_id AND user_id = auth.uid())
+);
+CREATE POLICY "Users can delete their segments" ON public.timeline_segments FOR DELETE USING (
+  EXISTS (SELECT 1 FROM public.weddings WHERE id = timeline_segments.wedding_id AND user_id = auth.uid())
+);

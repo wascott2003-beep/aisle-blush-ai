@@ -96,7 +96,7 @@ const ReviewClips = ({ clips, weddingName, onBack, onComplete }: ReviewClipsProp
             {isShortClip && (
               <Badge variant="outline" className="border-rose-gold text-rose-gold gap-1.5">
                 <Clock className="w-3 h-3" />
-                Short Clip · Under 3s
+                Short Clip · Under 2s
               </Badge>
             )}
           </div>
