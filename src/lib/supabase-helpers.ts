@@ -94,8 +94,40 @@ export async function updateMediaItemStatus(
 }
 
 export async function deleteMediaItem(id: string) {
-  const { error } = await supabase.from('media_items').delete().eq('id', id);
-  if (error) throw error;
+  return deleteMediaItems([id]);
+}
+
+// Deletes media rows AND their underlying storage files (original + preview).
+// The DB delete is authoritative and will throw on failure; storage cleanup is
+// best-effort so a storage hiccup never blocks the user's delete.
+export async function deleteMediaItems(ids: string[]) {
+  if (ids.length === 0) return;
+
+  // Look up the storage paths before the rows disappear.
+  const { data: rows, error: fetchError } = await supabase
+    .from('media_items')
+    .select('storage_path, preview_storage_path')
+    .in('id', ids);
+  if (fetchError) throw fetchError;
+
+  const { error: deleteError } = await supabase.from('media_items').delete().in('id', ids);
+  if (deleteError) throw deleteError;
+
+  const paths = Array.from(
+    new Set(
+      (rows || [])
+        .flatMap((r) => [r.storage_path, (r as { preview_storage_path?: string | null }).preview_storage_path])
+        .filter((p): p is string => !!p),
+    ),
+  );
+  if (paths.length > 0) {
+    try {
+      const { error: storageError } = await supabase.storage.from('wedding-media').remove(paths);
+      if (storageError) console.warn('Storage cleanup failed for deleted media:', storageError);
+    } catch (e) {
+      console.warn('Storage cleanup threw for deleted media:', e);
+    }
+  }
 }
 
 export async function fetchPendingMediaForWedding(weddingId: string) {

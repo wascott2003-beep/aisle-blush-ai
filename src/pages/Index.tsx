@@ -10,7 +10,7 @@ import AccountSettings from '@/components/AccountSettings';
 import WeddingLibrary from '@/components/WeddingLibrary';
 import { Wedding, Vendor } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchWeddings, deleteMediaItem, saveVendor, deleteVendor, fetchPendingMediaForWedding } from '@/lib/supabase-helpers';
+import { fetchWeddings, deleteMediaItem, deleteMediaItems, saveVendor, deleteVendor, fetchPendingMediaForWedding } from '@/lib/supabase-helpers';
 import { hydratePendingCount } from '@/lib/upload-queue';
 
 type Page = 'dashboard' | 'library' | 'settings';
@@ -137,10 +137,8 @@ const Index = () => {
           weddingName={selectedWedding.name}
           onBack={() => setShowReview(false)}
           onComplete={async (kept, deleted) => {
-            // Delete the items marked for deletion from DB
-            for (const id of deleted) {
-              await deleteMediaItem(id);
-            }
+            // Delete the items marked for deletion (DB rows + storage files)
+            await deleteMediaItems(deleted);
             await loadWeddings();
             setShowReview(false);
           }}
@@ -171,6 +169,10 @@ const Index = () => {
           onRefresh={loadWeddings}
           onDeleteItem={async (folderName, itemId) => {
             await deleteMediaItem(itemId);
+            await loadWeddings();
+          }}
+          onDeleteItems={async (itemIds) => {
+            await deleteMediaItems(itemIds);
             await loadWeddings();
           }}
           onUpdateVendors={async (vendors: Vendor[]) => {

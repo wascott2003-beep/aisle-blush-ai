@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Sparkles, Heart, Camera, PartyPopper, Gem, FolderOpen, Inbox, AlertTriangle, Image as ImageIcon, Film, Clapperboard, Download, Loader2, ArrowRightLeft, Plus, Upload, Share2 } from 'lucide-react';
+import { ArrowLeft, Sparkles, Heart, Camera, PartyPopper, Gem, FolderOpen, Inbox, AlertTriangle, Image as ImageIcon, Film, Clapperboard, Download, Loader2, ArrowRightLeft, Plus, Upload, Share2, Trash2, CheckSquare, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -26,13 +26,14 @@ interface WeddingDetailProps {
   onBack: () => void;
   onReview: () => void;
   onDeleteItem?: (folderName: string, itemId: string) => void;
+  onDeleteItems?: (itemIds: string[]) => void | Promise<void>;
   onUpdateVendors?: (vendors: Vendor[]) => void;
   onCreateReel?: () => void;
   onRefresh?: () => void | Promise<void>;
   onAddMore?: () => void;
 }
 
-const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendors, onCreateReel, onRefresh, onAddMore }: WeddingDetailProps) => {
+const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onDeleteItems, onUpdateVendors, onCreateReel, onRefresh, onAddMore }: WeddingDetailProps) => {
   const [openFolder, setOpenFolder] = useState<MediaFolder | null>(null);
   const [viewingItem, setViewingItem] = useState<MediaItem | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -40,6 +41,24 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
   const [newFolderName, setNewFolderName] = useState('');
   const [addingFolder, setAddingFolder] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   // All completed photos across folders — the candidate set for the client gallery.
   const galleryPhotos = wedding.folders
@@ -95,6 +114,22 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
     }
   };
 
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0 || !onDeleteItems) return;
+    setDeleting(true);
+    try {
+      await onDeleteItems(ids);
+      toast({ title: `Deleted ${ids.length} item${ids.length > 1 ? 's' : ''}` });
+      setConfirmDelete(false);
+      exitSelectMode();
+    } catch (e) {
+      toast({ title: 'Delete failed', variant: 'destructive' });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleMove = async (itemId: string, targetFolder: string) => {
     try {
       await updateMediaItemFolder(itemId, targetFolder);
@@ -139,14 +174,85 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
           )}
         </AnimatePresence>
 
-        <button onClick={() => setOpenFolder(null)} className="flex items-center gap-2 text-muted-foreground hover:text-foreground font-body text-sm mb-6 transition-colors">
+        <Dialog open={confirmDelete} onOpenChange={(o) => !deleting && setConfirmDelete(o)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="font-heading">
+                Delete {selectedIds.size} item{selectedIds.size > 1 ? 's' : ''}?
+              </DialogTitle>
+            </DialogHeader>
+            <p className="font-body text-sm text-muted-foreground">
+              This permanently removes the selected {selectedIds.size > 1 ? 'files' : 'file'} and frees up their storage. This can't be undone.
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={deleting} className="font-body">
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleBulkDelete} disabled={deleting} className="font-body">
+                {deleting ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Trash2 className="w-4 h-4 mr-1.5" />}
+                {deleting ? 'Deleting…' : `Delete ${selectedIds.size}`}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <button onClick={() => { exitSelectMode(); setOpenFolder(null); }} className="flex items-center gap-2 text-muted-foreground hover:text-foreground font-body text-sm mb-6 transition-colors">
           <ArrowLeft className="w-4 h-4" />
           Back to {wedding.name}
         </button>
 
-        <div className="mb-6">
-          <h1 className="text-2xl font-heading font-semibold text-foreground">{currentFolder.name}</h1>
-          <p className="text-muted-foreground font-body text-sm mt-1">{currentFolder.items.length} items</p>
+        <div className="flex items-start justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-heading font-semibold text-foreground">{currentFolder.name}</h1>
+            <p className="text-muted-foreground font-body text-sm mt-1">
+              {selectMode ? `${selectedIds.size} selected` : `${currentFolder.items.length} items`}
+            </p>
+          </div>
+          {currentFolder.items.length > 0 && onDeleteItems && (
+            <div className="flex items-center gap-2 shrink-0">
+              {selectMode ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      setSelectedIds(
+                        selectedIds.size === currentFolder.items.length
+                          ? new Set()
+                          : new Set(currentFolder.items.map((it) => it.id)),
+                      )
+                    }
+                    className="font-body text-sm"
+                  >
+                    {selectedIds.size === currentFolder.items.length ? 'Deselect all' : 'Select all'}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={selectedIds.size === 0}
+                    onClick={() => setConfirmDelete(true)}
+                    className="font-body"
+                  >
+                    <Trash2 className="w-4 h-4 mr-1.5" />
+                    Delete{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={exitSelectMode} className="font-body">
+                    Cancel
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectMode(true)}
+                  className="border-rose-gold text-rose-gold hover:bg-accent font-body"
+                >
+                  <CheckSquare className="w-4 h-4 mr-1.5" />
+                  Select
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         {currentFolder.items.length === 0 ? (
@@ -159,16 +265,19 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
             {currentFolder.items.map((item, i) => {
               const hasRealThumb = item.thumbnail && item.thumbnail !== '/placeholder.svg';
               const otherFolders = allFolderNames.filter((f) => f !== currentFolder.name);
+              const isSelected = selectedIds.has(item.id);
               return (
                 <motion.div
                   key={item.id}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: Math.min(i * 0.02, 0.5) }}
-                  className="aspect-square rounded-lg bg-accent border border-border relative overflow-hidden hover:border-rose-gold-light/60 transition-colors cursor-pointer group"
+                  className={`aspect-square rounded-lg bg-accent border relative overflow-hidden transition-colors cursor-pointer group ${
+                    isSelected ? 'border-rose-gold ring-2 ring-rose-gold' : 'border-border hover:border-rose-gold-light/60'
+                  }`}
                 >
-                  {/* Thumbnail area — tap to view */}
-                  <div className="w-full h-full" onClick={() => setViewingItem(item)}>
+                  {/* Thumbnail area — tap to view, or toggle selection in select mode */}
+                  <div className="w-full h-full" onClick={() => (selectMode ? toggleSelected(item.id) : setViewingItem(item))}>
                     {hasRealThumb ? (
                       item.type === 'video' ? (
                         <video src={item.thumbnail} className="w-full h-full object-cover" muted />
@@ -186,33 +295,49 @@ const WeddingDetail = ({ wedding, onBack, onReview, onDeleteItem, onUpdateVendor
                     )}
                   </div>
 
-                  {/* Move button — visible on hover / always visible on mobile */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        onClick={(e) => e.stopPropagation()}
-                        className="absolute top-1 left-1 w-7 h-7 rounded-full bg-foreground/70 flex items-center justify-center opacity-0 group-hover:opacity-100 sm:opacity-0 active:opacity-100 transition-opacity z-10"
-                        aria-label="Move to folder"
+                  {selectMode ? (
+                    /* Selection checkbox — overlays whole tile while selecting */
+                    <div
+                      onClick={() => toggleSelected(item.id)}
+                      className={`absolute inset-0 z-10 flex items-start justify-end p-1.5 ${isSelected ? 'bg-rose-gold/20' : ''}`}
+                    >
+                      <span
+                        className={`w-6 h-6 rounded-full flex items-center justify-center border-2 ${
+                          isSelected ? 'bg-rose-gold border-rose-gold' : 'bg-foreground/30 border-background/80'
+                        }`}
                       >
-                        <ArrowRightLeft className="w-3.5 h-3.5 text-background" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="min-w-[160px]">
-                      <p className="px-2 py-1.5 text-xs font-body text-muted-foreground">Move to…</p>
-                      {otherFolders.map((folder) => (
-                        <DropdownMenuItem
-                          key={folder}
-                          onClick={() => handleMove(item.id, folder)}
-                          className="font-body text-sm cursor-pointer"
+                        {isSelected && <Check className="w-4 h-4 text-background" />}
+                      </span>
+                    </div>
+                  ) : (
+                    /* Move button — visible on hover / always visible on mobile */
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute top-1 left-1 w-7 h-7 rounded-full bg-foreground/70 flex items-center justify-center opacity-0 group-hover:opacity-100 sm:opacity-0 active:opacity-100 transition-opacity z-10"
+                          aria-label="Move to folder"
                         >
-                          {folder}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                          <ArrowRightLeft className="w-3.5 h-3.5 text-background" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="min-w-[160px]">
+                        <p className="px-2 py-1.5 text-xs font-body text-muted-foreground">Move to…</p>
+                        {otherFolders.map((folder) => (
+                          <DropdownMenuItem
+                            key={folder}
+                            onClick={() => handleMove(item.id, folder)}
+                            className="font-body text-sm cursor-pointer"
+                          >
+                            {folder}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
 
                   {item.type === 'video' && (
-                    <span className="absolute bottom-1 right-1 text-[10px] bg-foreground/70 text-background px-1 rounded font-body">
+                    <span className="absolute bottom-1 right-1 text-[10px] bg-foreground/70 text-background px-1 rounded font-body z-10">
                       VID
                     </span>
                   )}
