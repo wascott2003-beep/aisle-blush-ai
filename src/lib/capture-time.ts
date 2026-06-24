@@ -18,17 +18,30 @@ export interface CaptureTime {
 // 1970-01-01. This is the offset between the two epochs, in seconds.
 const MAC_EPOCH_OFFSET_SECONDS = 2082844800;
 
-/** Best available capture time for a file, with the source it came from. */
+/**
+ * Best available capture time for a file, with the source it came from.
+ *
+ * Designed to be cheap on the upload hot path: photos do a fast EXIF header
+ * read (time-bounded); videos use the OS modified time instead of scanning the
+ * file bytes — reading every clip's header during upload is slow and risky on
+ * mobile Safari, and videos fall back to mtime often anyway. PR #4 can do
+ * deeper video time extraction off the critical path via extractVideoCaptureTime.
+ */
 export async function extractCaptureTime(file: File): Promise<CaptureTime | null> {
   if (file.type.startsWith('image/')) {
-    const exif = await extractPhotoCaptureTime(file).catch(() => null);
+    const exif = await withTimeout(extractPhotoCaptureTime(file), 4000).catch(() => null);
     if (exif) return { date: exif, source: 'exif' };
-  } else if (file.type.startsWith('video/')) {
-    const vid = await extractVideoCaptureTime(file).catch(() => null);
-    if (vid) return { date: vid, source: 'video_meta' };
   }
   const fallback = fallbackCaptureTime(file);
   return fallback ? { date: fallback, source: 'file_mtime' } : null;
+}
+
+/** Resolves to null if the promise doesn't settle within ms, so it can't stall uploads. */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
 }
 
 /** EXIF capture time for a photo, or null if absent (screenshots, stripped images). */
